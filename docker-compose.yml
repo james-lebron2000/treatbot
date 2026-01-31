@@ -1,0 +1,146 @@
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: clinicalmatch-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: clinicalmatch
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - clinicalmatch-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # OCR Service (Python Flask)
+  ocr-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/ocr.Dockerfile
+    container_name: clinicalmatch-ocr
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+      - OCR_REQUIRE_CREDENTIALS=${OCR_REQUIRE_CREDENTIALS:-false}
+      - ALIBABA_ACCESS_KEY_ID=${ALIBABA_ACCESS_KEY_ID}
+      - ALIBABA_ACCESS_KEY_SECRET=${ALIBABA_ACCESS_KEY_SECRET}
+      - ALIBABA_OCR_ENDPOINT=${ALIBABA_OCR_ENDPOINT:-ocr-api.cn-hangzhou.aliyuncs.com}
+      - ALIBABA_OCR_REGION=${ALIBABA_OCR_REGION:-cn-hangzhou}
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - clinicalmatch-network
+    depends_on:
+      - mongodb
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend API (Node.js/Express)
+  backend:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/backend.Dockerfile
+    container_name: clinicalmatch-backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=5001
+      - MONGODB_URI=mongodb://mongodb:27017/clinicalmatch
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-this}
+      - JWT_EXPIRES_IN=7d
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - baseURL=${baseURL:-https://api.moonshot.cn/v1}
+      - LLM_PHI_MODE=${LLM_PHI_MODE:-full}
+      - STRICT_MODE=${STRICT_MODE:-false}
+      - REQUIRE_LLM=${REQUIRE_LLM:-false}
+      - ALLOW_PARSING_FALLBACK=${ALLOW_PARSING_FALLBACK:-true}
+      - ALLOW_OCR_TESSERACT_FALLBACK=${ALLOW_OCR_TESSERACT_FALLBACK:-true}
+      - COMPLIANCE_SECURITY_AGREEMENT_VERSION=${COMPLIANCE_SECURITY_AGREEMENT_VERSION:-2025-12-18}
+      - MATCH_HISTORY_MAX=${MATCH_HISTORY_MAX:-50}
+      - PYTHON_OCR_URL=http://ocr-service:5002
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://frontend:3000
+      - CORS_ALLOW_CREDENTIALS=true
+      - APP_MODE=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ALIBABA_ACCESS_KEY_ID=${ALIBABA_ACCESS_KEY_ID}
+      - ALIBABA_ACCESS_KEY_SECRET=${ALIBABA_ACCESS_KEY_SECRET}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./data:/app/data
+    networks:
+      - clinicalmatch-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      ocr-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/frontend.Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/api}
+    container_name: clinicalmatch-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      # Internal proxy target for server-side /api/* route handlers (container network)
+      - API_PROXY_TARGET=http://backend:5001/api
+    networks:
+      - clinicalmatch-network
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis (Optional - for caching and job queues)
+  redis:
+    image: redis:7-alpine
+    container_name: clinicalmatch-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - clinicalmatch-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  clinicalmatch-network:
+    driver: bridge

@@ -1,0 +1,22 @@
+Extract significant adverse events (≥ grade 3) and treatment toxicities.
+
+Rules:
+- Output JSON only (no comments, no markdown).
+- Include `confidence`, `reasoning`, and `evidence` copied from the source text.
+
+Schema:
+{
+  "adverse_events": [
+    {
+      "event": string,
+      "grade": integer | null,
+      "onset_date": "YYYY-MM-DD" | null,
+      "related_to_treatment": boolean | null,
+      "management": string | null,
+      "outcome": string | null
+    }
+  ],
+  "confidence": "high" | "medium" | "low",
+  "reasoning": string,
+  "evidence": string | null
+}

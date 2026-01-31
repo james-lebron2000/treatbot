@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>org.clinicalmatch.autossh</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/usr/local/bin/autossh</string>
+      <string>-M</string>
+      <string>0</string>
+      <string>-o</string>
+      <string>ServerAliveInterval=30</string>
+      <string>-o</string>
+      <string>ServerAliveCountMax=3</string>
+      <string>-o</string>
+      <string>ExitOnForwardFailure=yes</string>
+      <string>-N</string>
+      <string>-R</string>
+      <string>${REMOTE_FRONTEND_PORT}:localhost:${LOCAL_FRONTEND_PORT}</string>
+      <string>-R</string>
+      <string>${REMOTE_OCR_PORT}:localhost:${LOCAL_OCR_PORT}</string>
+      <string>-R</string>
+      <string>${REMOTE_MEDICAL_PORT}:localhost:${LOCAL_MEDICAL_PORT}</string>
+      <string>-R</string>
+      <string>${REMOTE_MATCH_PORT}:localhost:${LOCAL_MATCH_PORT}</string>
+      <string>-p</string>
+      <string>${AUTOSSH_SSH_PORT}</string>
+      <string>-i</string>
+      <string>${SSH_IDENTITY_FILE}</string>
+      <string>${AUTOSSH_REMOTE_USER}@${AUTOSSH_REMOTE_HOST}</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>${HOME}/trial-match</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>LOCAL_FRONTEND_PORT</key>
+      <string>3000</string>
+      <key>LOCAL_OCR_PORT</key>
+      <string>5001</string>
+      <key>LOCAL_MEDICAL_PORT</key>
+      <string>5002</string>
+      <key>LOCAL_MATCH_PORT</key>
+      <string>5003</string>
+      <key>REMOTE_FRONTEND_PORT</key>
+      <string>8300</string>
+      <key>REMOTE_OCR_PORT</key>
+      <string>8501</string>
+      <key>REMOTE_MEDICAL_PORT</key>
+      <string>8502</string>
+      <key>REMOTE_MATCH_PORT</key>
+      <string>8503</string>
+      <key>AUTOSSH_SSH_PORT</key>
+      <string>22</string>
+      <key>AUTOSSH_REMOTE_USER</key>
+      <string>root</string>
+      <key>AUTOSSH_REMOTE_HOST</key>
+      <string>167.179.111.87</string>
+      <key>SSH_IDENTITY_FILE</key>
+      <string>${HOME}/.ssh/id_rsa_clinical_trial</string>
+    </dict>
+
+    <key>KeepAlive</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>${HOME}/Library/Logs/autossh.err.log</string>
+    <key>StandardOutPath</key>
+    <string>${HOME}/Library/Logs/autossh.out.log</string>
+  </dict>
+</plist>

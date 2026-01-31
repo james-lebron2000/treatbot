@@ -1,0 +1,32 @@
+Extract systemic anti-tumor treatments.
+
+Rules:
+- Output JSON only (no comments, no markdown).
+- Include `confidence`, `reasoning`, and `evidence` copied from the source text.
+
+Schema:
+{
+  "systemic_treatments": [
+    {
+      "line": integer,
+      "regimen": string[],
+      "drug_classes": string[],
+      "start_date": "YYYY-MM-DD" | null,
+      "end_date": "YYYY-MM-DD" | null,
+      "cycles": integer | null,
+      "best_response": "CR" | "PR" | "SD" | "PD" | "NE" | null,
+      "reason_for_discontinuation": string | null,
+      "adverse_events": string[] | null,
+      "clinical_trial": boolean | null
+    }
+  ],
+  "total_treatment_lines": integer | null,
+  "last_treatment_date": "YYYY-MM-DD" | null,
+  "confidence": "high" | "medium" | "low",
+  "reasoning": string,
+  "evidence": string | null
+}
+
+Guidance:
+- Order treatments chronologically (line 1 earliest).
+- `drug_classes`: use terms like "化疗", "靶向治疗", "免疫治疗", "内分泌治疗".

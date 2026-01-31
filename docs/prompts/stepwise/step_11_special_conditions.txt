@@ -1,0 +1,40 @@
+Capture special considerations affecting trial eligibility or logistics.
+
+Rules:
+- Output JSON only (no comments, no markdown).
+- Include `confidence`, `reasoning`, and `evidence` copied from the source text.
+
+Schema:
+{
+  "special_conditions": {
+    "cns_metastasis_controlled": boolean | null,
+    "uncontrolled_ascites": boolean | null,
+    "uncontrolled_pleural_effusion": boolean | null,
+    "major_surgery_planned": boolean | null,
+    "pregnancy_planned": boolean | null
+  },
+  "medication_compliance": {
+    "compliance_assessment": "良好" | "一般" | "差" | "未评估" | null,
+    "factors_affecting_compliance": string[] | []
+  },
+  "social_support": {
+    "family_support": "良好" | "一般" | "差" | null,
+    "caregiver_available": boolean | null,
+    "transportation_issues": boolean | null,
+    "financial_constraints": boolean | null
+  },
+  "substance_use": {
+    "alcohol_abuse": boolean | null,
+    "drug_abuse": boolean | null,
+    "smoking_status": "从不吸烟" | "既往吸烟" | "目前吸烟" | null,
+    "pack_years": number | null
+  },
+  "geographic_factors": {
+    "distance_to_center": string | null,
+    "willing_to_travel": boolean | null,
+    "local_healthcare_access": string | null
+  },
+  "confidence": "high" | "medium" | "low",
+  "reasoning": string,
+  "evidence": string | null
+}

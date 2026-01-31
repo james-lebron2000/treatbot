@@ -1,0 +1,48 @@
+Extract comorbidities and infection status relevant to exclusion criteria.
+
+Rules:
+- Output JSON only (no comments, no markdown).
+- Include `confidence`, `reasoning`, and `evidence` copied from the source text.
+
+Schema:
+{
+  "viral_hepatitis": {
+    "hbv_status": "阳性" | "阴性" | "既往感染" | null,
+    "hbv_dna": string | null,
+    "hcv_status": "阳性" | "阴性" | null,
+    "hcv_rna": string | null,
+    "antiviral_treatment": boolean | null
+  },
+  "other_infections": {
+    "hiv_status": "阳性" | "阴性" | null,
+    "active_infection": boolean | null,
+    "infection_site": string | null,
+    "tuberculosis": boolean | null
+  },
+  "cardiovascular": {
+    "hypertension": boolean | null,
+    "coronary_disease": boolean | null,
+    "heart_failure": boolean | null,
+    "arrhythmia": boolean | null,
+    "controlled": boolean | null
+  },
+  "autoimmune_diseases": string[] | [],
+  "respiratory_disease": {
+    "interstitial_lung_disease": boolean | null,
+    "copd": boolean | null,
+    "asthma": boolean | null
+  },
+  "metabolic_disorders": {
+    "diabetes": boolean | null,
+    "thyroid_disease": boolean | null,
+    "controlled": boolean | null
+  },
+  "psychiatric_conditions": {
+    "depression": boolean | null,
+    "anxiety": boolean | null,
+    "substance_abuse": boolean | null
+  },
+  "confidence": "high" | "medium" | "low",
+  "reasoning": string,
+  "evidence": string | null
+}

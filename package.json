@@ -1,0 +1,40 @@
+{
+  "name": "clinical-match",
+  "version": "1.0.0",
+  "description": "Clinical trial matching platform demo",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "ocr": "./python_ocr_service/.venv/bin/python python_ocr_service/ocr_server.py",
+    "dev:all": "concurrently \"npm run ocr\" \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "install-all": "npm install && cd server && npm install && cd ../client && npm install",
+    "build": "cd client && npm run build",
+    "start:prod": "npm run build && concurrently \"cd server && npm start\" \"cd client && npm start\"",
+    "setup:python": "./scripts/setup_python_venv.sh",
+    "db:seed": "cd server && npm run setup",
+    "bootstrap": "npm run install-all && npm run setup:python && npm run db:seed && npm run dev:all"
+  },
+  "keywords": [
+    "clinical-trials",
+    "healthcare",
+    "matching"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.3",
+    "class-variance-authority": "^0.7.1",
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.545.0",
+    "msw": "^2.11.5",
+    "zod": "^4.1.12"
+  }
+}

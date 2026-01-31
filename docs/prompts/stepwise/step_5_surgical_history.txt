@@ -1,0 +1,37 @@
+Extract surgical and local therapy history.
+
+Rules:
+- Output JSON only (no comments, no markdown).
+- Include `confidence`, `reasoning`, and `evidence` copied from the source text.
+
+Schema:
+{
+  "surgical_history": [
+    {
+      "procedure": string,
+      "date": "YYYY-MM-DD" | null,
+      "site": string | null,
+      "pathology_stage": string | null,
+      "response": string | null,
+      "complications": string | null
+    }
+  ],
+  "local_treatments": [
+    {
+      "type": "放疗" | "介入" | "射频消融" | "微波消融" | "冷冻消融" | "γ刀" | "射波刀" | "质子治疗",
+      "site": string | null,
+      "date_range": string | null,
+      "dose": string | null,
+      "fractions": integer | null,
+      "response": string | null
+    }
+  ],
+  "transplant_history": {
+    "organ_transplant": boolean | null,
+    "stem_cell_transplant": boolean | null,
+    "date": "YYYY-MM-DD" | null
+  },
+  "confidence": "high" | "medium" | "low",
+  "reasoning": string,
+  "evidence": string | null
+}

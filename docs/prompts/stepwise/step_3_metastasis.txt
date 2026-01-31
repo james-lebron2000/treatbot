@@ -1,0 +1,29 @@
+Extract metastasis and lesion information.
+
+Rules:
+- Output JSON only (no comments, no markdown).
+- `metastasis_sites` list canonical Chinese labels (e.g., "肝", "肺", "骨", "脑", "腹膜", "淋巴结", "胸水", "腹水").
+- `cns_metastasis` indicates brain/spinal/meningeal involvement.
+- Include ascites/pleural effusion status.
+- Include `confidence`, `reasoning`, and `evidence` copied from the source text.
+
+Schema:
+{
+  "metastasis_sites": string[] | [],
+  "measurable_lesions": boolean | null,
+  "cns_metastasis": {
+    "present": boolean | null,
+    "treated": boolean | null,
+    "stable": boolean | null,
+    "size_max_cm": number | null
+  },
+  "bone_metastasis": string[] | [],
+  "ascites_pleural_effusion": {
+    "ascites": boolean | null,
+    "pleural_effusion": boolean | null,
+    "requires_drainage": boolean | null
+  },
+  "confidence": "high" | "medium" | "low",
+  "reasoning": string,
+  "evidence": string | null
+}

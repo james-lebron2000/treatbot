@@ -1,0 +1,559 @@
+{
+  "schema_version": "1.0.0",
+  "description": "标准化医疗数据提取字段字典 - 11个维度的结构化定义",
+  "extraction_steps": {
+    "step_1": {
+      "name": "人口学信息",
+      "description": "基本患者信息提取",
+      "fields": {
+        "age": {
+          "type": "integer",
+          "required": true,
+          "validation": {"min": 0, "max": 120},
+          "description": "患者年龄（岁）"
+        },
+        "gender": {
+          "type": "string",
+          "required": true,
+          "enum": ["male", "female", "男", "女"],
+          "description": "患者性别（建议输出 male/female）"
+        },
+        "pregnancy_status": {
+          "type": "string",
+          "required": false,
+          "enum": ["妊娠", "哺乳", "非妊娠非哺乳", null],
+          "description": "妊娠/哺乳状态"
+        },
+        "ethnicity": {
+          "type": "string",
+          "required": false,
+          "description": "民族"
+        },
+        "height_cm": {
+          "type": "number",
+          "required": false,
+          "unit": "cm",
+          "description": "身高（cm）"
+        },
+        "weight_kg": {
+          "type": "number",
+          "required": false,
+          "unit": "kg",
+          "description": "体重（kg）"
+        }
+      }
+    },
+    "step_2": {
+      "name": "诊断与分期",
+      "description": "主要诊断、病理分型、分期信息",
+      "fields": {
+        "primary_diagnosis": {
+          "type": "string",
+          "required": true,
+          "description": "主要肿瘤诊断"
+        },
+        "pathology_type": {
+          "type": "string",
+          "required": false,
+          "description": "病理分型（如粗梁型、腺癌、鳞癌等）"
+        },
+        "grade": {
+          "type": "string",
+          "required": false,
+          "description": "组织学分级（I-IV级）"
+        },
+        "staging_system": {
+          "type": "string",
+          "required": false,
+          "enum": ["TNM", "CNLC", "BCLC", "Child-Pugh", null],
+          "description": "分期系统"
+        },
+        "staging_value": {
+          "type": "string",
+          "required": false,
+          "description": "具体分期（如T3N0M1、IIIb等）"
+        },
+        "diagnosis_date": {
+          "type": "string",
+          "format": "YYYY-MM-DD",
+          "required": false,
+          "description": "初诊日期"
+        },
+        "mvi_grade": {
+          "type": "string",
+          "required": false,
+          "enum": ["M0", "M1", "M2", null],
+          "description": "微血管侵犯分级（仅肝癌）"
+        }
+      }
+    },
+    "step_3": {
+      "name": "转移与病灶",
+      "description": "转移部位和可测量病灶情况",
+      "fields": {
+        "metastasis_sites": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["肝", "肺", "骨", "脑", "腹膜", "淋巴结", "腹水", "胸水", "其他"]
+          },
+          "description": "转移部位列表"
+        },
+        "measurable_lesions": {
+          "type": "boolean",
+          "required": true,
+          "description": "是否有可测量病灶（RECIST 1.1标准）"
+        },
+        "cns_metastasis": {
+          "type": "object",
+          "properties": {
+            "present": {"type": "boolean"},
+            "treated": {"type": "boolean"},
+            "stable": {"type": "boolean"},
+            "size_max_cm": {"type": "number"}
+          },
+          "description": "中枢神经系统转移详情"
+        },
+        "bone_metastasis": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "骨转移部位"
+        },
+        "ascites_pleural_effusion": {
+          "type": "object",
+          "properties": {
+            "ascites": {"type": "boolean"},
+            "pleural_effusion": {"type": "boolean"},
+            "requires_drainage": {"type": "boolean"}
+          },
+          "description": "腹水/胸水情况"
+        }
+      }
+    },
+    "step_4": {
+      "name": "体能状态与生存预期",
+      "description": "ECOG/KPS评分和预期生存期",
+      "fields": {
+        "ecog_score": {
+          "type": "integer",
+          "required": false,
+          "enum": [0, 1, 2, 3, 4, null],
+          "description": "ECOG体能状态评分"
+        },
+        "kps_score": {
+          "type": "integer",
+          "required": false,
+          "validation": {"min": 0, "max": 100, "step": 10},
+          "description": "Karnofsky评分"
+        },
+        "expected_survival_months": {
+          "type": "integer",
+          "required": false,
+          "validation": {"min": 1},
+          "description": "预期生存期（月）"
+        },
+        "functional_status_description": {
+          "type": "string",
+          "required": false,
+          "description": "功能状态描述（用于推断ECOG评分）"
+        }
+      }
+    },
+    "step_5": {
+      "name": "既往手术和局部治疗",
+      "description": "手术、消融、放疗等局部治疗史",
+      "fields": {
+        "surgical_history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "procedure": {"type": "string"},
+              "date": {"type": "string", "format": "YYYY-MM-DD"},
+              "site": {"type": "string"},
+              "pathology_stage": {"type": "string"},
+              "response": {"type": "string"},
+              "complications": {"type": "string"}
+            }
+          },
+          "description": "手术治疗史"
+        },
+        "local_treatments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {"type": "string", "enum": ["放疗", "介入", "射频消融", "微波消融", "冷冻消融", "γ刀", "射波刀", "质子治疗"]},
+              "site": {"type": "string"},
+              "date_range": {"type": "string"},
+              "dose": {"type": "string"},
+              "fractions": {"type": "integer"},
+              "response": {"type": "string"}
+            }
+          },
+          "description": "局部治疗史"
+        },
+        "transplant_history": {
+          "type": "object",
+          "properties": {
+            "organ_transplant": {"type": "boolean"},
+            "stem_cell_transplant": {"type": "boolean"},
+            "date": {"type": "string", "format": "YYYY-MM-DD"}
+          },
+          "description": "移植史"
+        }
+      }
+    },
+    "step_6": {
+      "name": "全身药物治疗史",
+      "description": "化疗、靶向、免疫治疗历史及响应",
+      "fields": {
+        "systemic_treatments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "line": {"type": "integer"},
+              "regimen": {"type": "array", "items": {"type": "string"}},
+              "drug_classes": {"type": "array", "items": {"type": "string", "enum": ["化疗", "靶向治疗", "免疫治疗", "内分泌治疗", "抗血管生成"]}},
+              "start_date": {"type": "string", "format": "YYYY-MM-DD"},
+              "end_date": {"type": "string", "format": "YYYY-MM-DD"},
+              "cycles": {"type": "integer"},
+              "best_response": {"type": "string", "enum": ["CR", "PR", "SD", "PD", "NE"]},
+              "reason_for_discontinuation": {"type": "string"},
+              "adverse_events": {"type": "array", "items": {"type": "string"}},
+              "duration_months": {"type": "number"}
+            }
+          },
+          "description": "全身治疗史按线数排序"
+        },
+        "total_treatment_lines": {
+          "type": "integer",
+          "required": true,
+          "description": "总治疗线数"
+        },
+        "last_treatment_date": {
+          "type": "string",
+          "format": "YYYY-MM-DD",
+          "description": "最后一次治疗日期"
+        },
+        "clinical_trial_history": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "既往参加的临床试验"
+        }
+      }
+    },
+    "step_7": {
+      "name": "实验室与器官功能",
+      "description": "血常规、生化指标、肿瘤标志物",
+      "fields": {
+        "lab_date": {
+          "type": "string",
+          "format": "YYYY-MM-DD",
+          "required": true,
+          "description": "检验日期"
+        },
+        "blood_counts": {
+          "type": "object",
+          "properties": {
+            "wbc": {"type": "number", "unit": "×10^9/L", "description": "白细胞计数"},
+            "anc": {"type": "number", "unit": "×10^9/L", "description": "中性粒细胞绝对值"},
+            "platelet": {"type": "number", "unit": "×10^9/L", "description": "血小板计数"},
+            "hemoglobin": {"type": "number", "unit": "g/L", "description": "血红蛋白"}
+          }
+        },
+        "liver_function": {
+          "type": "object",
+          "properties": {
+            "alt": {"type": "number", "unit": "U/L"},
+            "ast": {"type": "number", "unit": "U/L"},
+            "tbil": {"type": "number", "unit": "μmol/L"},
+            "dbil": {"type": "number", "unit": "μmol/L"},
+            "alb": {"type": "number", "unit": "g/L"},
+            "alp": {"type": "number", "unit": "U/L"},
+            "ggt": {"type": "number", "unit": "U/L"},
+            "child_pugh_score": {"type": "string", "enum": ["A", "B", "C", null]}
+          }
+        },
+        "kidney_function": {
+          "type": "object",
+          "properties": {
+            "creatinine": {"type": "number", "unit": "μmol/L"},
+            "bun": {"type": "number", "unit": "mmol/L"},
+            "egfr": {"type": "number", "unit": "mL/min/1.73m²"},
+            "ccr": {"type": "number", "unit": "mL/min"}
+          }
+        },
+        "coagulation": {
+          "type": "object",
+          "properties": {
+            "pt": {"type": "number", "unit": "s"},
+            "aptt": {"type": "number", "unit": "s"},
+            "inr": {"type": "number"},
+            "fibrinogen": {"type": "number", "unit": "g/L"},
+            "d_dimer": {"type": "number", "unit": "mg/L"}
+          }
+        },
+        "tumor_markers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "marker": {"type": "string", "enum": ["AFP", "CEA", "CA19-9", "CA125", "CA15-3", "PSA", "β-HCG", "DCP", "PIVKA-II"]},
+              "value": {"type": "string"},
+              "unit": {"type": "string"},
+              "reference_range": {"type": "string"},
+              "trend": {"type": "string", "enum": ["显著升高", "升高", "下降", "稳定", "正常"]}
+            }
+          }
+        },
+        "other_lab_values": {
+          "type": "object",
+          "properties": {
+            "glucose": {"type": "number", "unit": "mmol/L"},
+            "ldh": {"type": "number", "unit": "U/L"},
+            "tsh": {"type": "number", "unit": "mIU/L"}
+          }
+        }
+      }
+    },
+    "step_8": {
+      "name": "合并症与感染",
+      "description": "慢性疾病、感染状态和自身免疫病",
+      "fields": {
+        "viral_hepatitis": {
+          "type": "object",
+          "properties": {
+            "hbv_status": {"type": "string", "enum": ["阳性", "阴性", "既往感染", null]},
+            "hbv_dna": {"type": "string"},
+            "hcv_status": {"type": "string", "enum": ["阳性", "阴性", null]},
+            "hcv_rna": {"type": "string"},
+            "antiviral_treatment": {"type": "boolean"}
+          }
+        },
+        "other_infections": {
+          "type": "object",
+          "properties": {
+            "hiv_status": {"type": "string", "enum": ["阳性", "阴性", null]},
+            "active_infection": {"type": "boolean"},
+            "infection_site": {"type": "string"},
+            "tuberculosis": {"type": "boolean"}
+          }
+        },
+        "cardiovascular": {
+          "type": "object",
+          "properties": {
+            "hypertension": {"type": "boolean"},
+            "coronary_disease": {"type": "boolean"},
+            "heart_failure": {"type": "boolean"},
+            "arrhythmia": {"type": "boolean"},
+            "controlled": {"type": "boolean"}
+          }
+        },
+        "autoimmune_diseases": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "自身免疫性疾病列表"
+        },
+        "respiratory_disease": {
+          "type": "object",
+          "properties": {
+            "interstitial_lung_disease": {"type": "boolean"},
+            "copd": {"type": "boolean"},
+            "asthma": {"type": "boolean"}
+          }
+        },
+        "metabolic_disorders": {
+          "type": "object",
+          "properties": {
+            "diabetes": {"type": "boolean"},
+            "thyroid_disease": {"type": "boolean"},
+            "controlled": {"type": "boolean"}
+          }
+        },
+        "psychiatric_conditions": {
+          "type": "object",
+          "properties": {
+            "depression": {"type": "boolean"},
+            "anxiety": {"type": "boolean"},
+            "substance_abuse": {"type": "boolean"},
+            "compliance_issues": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "step_9": {
+      "name": "分子检测与基因突变",
+      "description": "基因检测、PD-L1状态和分子标志物",
+      "fields": {
+        "molecular_testing": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "gene": {"type": "string", "enum": ["EGFR", "ALK", "ROS1", "KRAS", "NRAS", "BRAF", "HER2", "PIK3CA", "TP53", "IDH1", "FGFR2"]},
+              "mutation_status": {"type": "string", "enum": ["突变", "野生型", "融合", "扩增", "缺失", "未检测"]},
+              "mutation_details": {"type": "string"},
+              "test_method": {"type": "string"},
+              "test_date": {"type": "string", "format": "YYYY-MM-DD"}
+            }
+          }
+        },
+        "pd_l1_status": {
+          "type": "object",
+          "properties": {
+            "expression": {"type": "string", "enum": ["阳性", "阴性", "未检测"]},
+            "percentage": {"type": "number", "validation": {"min": 0, "max": 100}},
+            "cps_score": {"type": "number"},
+            "tps_score": {"type": "number"},
+            "antibody": {"type": "string"}
+          }
+        },
+        "msi_mmr_status": {
+          "type": "object",
+          "properties": {
+            "msi_status": {"type": "string", "enum": ["MSI-H", "MSI-L", "MSS", "未检测"]},
+            "mmr_status": {"type": "string", "enum": ["dMMR", "pMMR", "未检测"]}
+          }
+        },
+        "tmb_status": {
+          "type": "object",
+          "properties": {
+            "tmb_value": {"type": "number", "unit": "mutations/Mb"},
+            "tmb_level": {"type": "string", "enum": ["高", "中", "低", "未检测"]}
+          }
+        },
+        "other_biomarkers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "biomarker": {"type": "string"},
+              "status": {"type": "string"},
+              "value": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "step_10": {
+      "name": "不良反应与毒性",
+      "description": "既往3级以上不良事件和导致停药的情况",
+      "fields": {
+        "severe_adverse_events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "event": {"type": "string"},
+              "ctcae_grade": {"type": "integer", "enum": [1, 2, 3, 4, 5]},
+              "treatment_related": {"type": "boolean"},
+              "treatment_causing": {"type": "string"},
+              "action_taken": {"type": "string", "enum": ["剂量减少", "暂停治疗", "永久停药", "对症治疗", "无需处理"]},
+              "outcome": {"type": "string", "enum": ["完全恢复", "部分恢复", "持续", "加重", "死亡"]},
+              "date": {"type": "string", "format": "YYYY-MM-DD"}
+            }
+          }
+        },
+        "immune_related_aes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "event": {"type": "string"},
+              "grade": {"type": "integer"},
+              "steroid_treatment": {"type": "boolean"},
+              "permanent_discontinuation": {"type": "boolean"}
+            }
+          }
+        },
+        "bleeding_history": {
+          "type": "object",
+          "properties": {
+            "major_bleeding": {"type": "boolean"},
+            "bleeding_site": {"type": "string"},
+            "recent_bleeding": {"type": "boolean"}
+          }
+        },
+        "drug_allergies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "drug": {"type": "string"},
+              "reaction": {"type": "string"},
+              "severity": {"type": "string", "enum": ["轻微", "中度", "严重", "危及生命"]}
+            }
+          }
+        }
+      }
+    },
+    "step_11": {
+      "name": "特殊情况与社会因素",
+      "description": "CNS转移、积液、依从性、社会支持等",
+      "fields": {
+        "special_conditions": {
+          "type": "object",
+          "properties": {
+            "cns_metastasis_controlled": {"type": "boolean"},
+            "uncontrolled_ascites": {"type": "boolean"},
+            "uncontrolled_pleural_effusion": {"type": "boolean"},
+            "major_surgery_planned": {"type": "boolean"},
+            "pregnancy_planned": {"type": "boolean"}
+          }
+        },
+        "medication_compliance": {
+          "type": "object",
+          "properties": {
+            "compliance_assessment": {"type": "string", "enum": ["良好", "一般", "差", "未评估"]},
+            "factors_affecting_compliance": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "social_support": {
+          "type": "object",
+          "properties": {
+            "family_support": {"type": "string", "enum": ["良好", "一般", "差"]},
+            "caregiver_available": {"type": "boolean"},
+            "transportation_issues": {"type": "boolean"},
+            "financial_constraints": {"type": "boolean"}
+          }
+        },
+        "substance_use": {
+          "type": "object",
+          "properties": {
+            "alcohol_abuse": {"type": "boolean"},
+            "drug_abuse": {"type": "boolean"},
+            "smoking_status": {"type": "string", "enum": ["从不吸烟", "既往吸烟", "目前吸烟"]},
+            "pack_years": {"type": "number"}
+          }
+        },
+        "geographic_factors": {
+          "type": "object",
+          "properties": {
+            "distance_to_center": {"type": "string"},
+            "willing_to_travel": {"type": "boolean"},
+            "local_healthcare_access": {"type": "string"}
+          }
+        }
+      }
+    }
+  },
+  "validation_rules": {
+    "required_for_matching": [
+      "age", "gender", "primary_diagnosis", "ecog_score", "total_treatment_lines", 
+      "measurable_lesions", "lab_date", "blood_counts", "liver_function", "kidney_function"
+    ],
+    "conditional_requirements": {
+      "hepatocellular_carcinoma": ["child_pugh_score", "hbv_status", "afp_value"],
+      "lung_cancer": ["smoking_status", "histology_type", "driver_mutations"],
+      "colorectal_cancer": ["msi_mmr_status", "kras_status", "primary_site"]
+    }
+  },
+  "confidence_scoring": {
+    "high": "直接从病历中明确提取的信息",
+    "medium": "通过推理或综合多个信息得出",
+    "low": "信息模糊或存在不确定性",
+    "missing": "病历中完全缺失该信息"
+  }
+}

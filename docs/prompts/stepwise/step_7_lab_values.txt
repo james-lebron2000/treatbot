@@ -1,0 +1,55 @@
+Extract latest lab and organ function values.
+
+Rules:
+- Output JSON only (no comments, no markdown).
+- Include `confidence`, `reasoning`, and `evidence` copied from the source text.
+
+Schema:
+{
+  "lab_date": "YYYY-MM-DD" | null,
+  "blood_counts": {
+    "wbc": number | null,
+    "anc": number | null,
+    "platelet": number | null,
+    "hemoglobin": number | null
+  },
+  "liver_function": {
+    "alt": number | null,
+    "ast": number | null,
+    "tbil": number | null,
+    "dbil": number | null,
+    "alb": number | null,
+    "alp": number | null,
+    "ggt": number | null,
+    "child_pugh_score": "A" | "B" | "C" | null
+  },
+  "kidney_function": {
+    "creatinine": number | null,
+    "bun": number | null,
+    "egfr": number | null,
+    "ccr": number | null
+  },
+  "coagulation": {
+    "pt": number | null,
+    "aptt": number | null,
+    "inr": number | null,
+    "fibrinogen": number | null,
+    "d_dimer": number | null
+  },
+  "tumor_markers": [
+    {
+      "marker": "AFP" | "CEA" | "CA19-9" | "CA125" | "DCP" | "PIVKA-II" | string,
+      "value": number | null,
+      "unit": string | null,
+      "reference_range": string | null,
+      "trend": "显著升高" | "升高" | "下降" | "稳定" | "正常" | null
+    }
+  ],
+  "confidence": "high" | "medium" | "low",
+  "reasoning": string,
+  "evidence": string | null
+}
+
+Guidance:
+- Return numeric values without units (store units separately). If units mentioned, include them in `unit`.
+- Choose the most recent labs.

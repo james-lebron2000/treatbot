@@ -1,0 +1,18 @@
+{
+  "version": "v2.0.0",
+  "hardExclusions": [
+    { "intent": "age", "label": "年龄限制" },
+    { "intent": "pregnancy", "label": "妊娠/哺乳排除" },
+    { "intent": "hbv", "label": "HBV 活动性感染" },
+    { "intent": "cns", "label": "中枢神经系统转移" }
+  ],
+  "scoringCriteria": [
+    { "category": "demographics", "label": "人口学特征", "weight": 12 },
+    { "category": "diagnosis", "label": "诊断与分期", "weight": 25 },
+    { "category": "performance_status", "label": "功能状态", "weight": 15 },
+    { "category": "lab_values", "label": "实验室指标", "weight": 20 },
+    { "category": "treatment_history", "label": "治疗史", "weight": 15 },
+    { "category": "biomarkers", "label": "生物标志物", "weight": 10 },
+    { "category": "comorbidities", "label": "并发症情况", "weight": 5 }
+  ]
+}

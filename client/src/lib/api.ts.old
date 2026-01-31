@@ -1,0 +1,377 @@
+import axios, { type AxiosResponse } from 'axios';
+import { z } from 'zod';
+import {
+  ApiErrorSchema,
+  ExtractedPatient,
+  ExtractedPatientSchema,
+  TrialMatch,
+  TrialMatchSchema,
+} from '@/types';
+import { mockApi } from '@/mocks';
+
+// ==============================================================================
+// 🎯 API Base URL Configuration
+// ==============================================================================
+// Linus philosophy: Eliminate special cases. Hard-coded values beat complex logic.
+// Remote production: point to Aliyun server
+// Local development: auto-detect from origin
+// ==============================================================================
+
+const PRIMARY_BASE = (process.env.NEXT_PUBLIC_API_BASE ?? '').trim();
+const SECONDARY_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '').trim();
+const RAW_BASE_URL = PRIMARY_BASE || SECONDARY_BASE;
+
+const resolveApiBaseUrl = (): string => {
+  const candidate = RAW_BASE_URL.length > 0 ? RAW_BASE_URL : 'https://findclinicaltrial.org/api';
+  return candidate.replace(/\/$/, '');
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
+const SHOULD_USE_MOCKS = PRIMARY_BASE.length === 0 && SECONDARY_BASE.length === 0;
+const API_BEARER_TOKEN = (process.env.NEXT_PUBLIC_API_TOKEN ?? '').trim();
+
+export { API_BASE_URL, SHOULD_USE_MOCKS };
+
+const defaultAxiosHeaders: Record<string, string> = {
+  'Content-Type': 'application/json',
+};
+
+if (API_BEARER_TOKEN) {
+  defaultAxiosHeaders.Authorization = `Bearer ${API_BEARER_TOKEN}`;
+}
+
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: defaultAxiosHeaders,
+});
+
+export function useApi() {
+  return apiClient;
+}
+
+export type ApiSuccessEnvelope<T> = {
+  success: true;
+  message?: string;
+  data: T;
+  meta?: Record<string, unknown> | null;
+  traceId?: string;
+};
+
+export type ApiFailureEnvelope = {
+  success: false;
+  message: string;
+  code?: string;
+  details?: unknown;
+  traceId?: string;
+};
+
+export type ApiEnvelope<T> = ApiSuccessEnvelope<T> | ApiFailureEnvelope;
+
+export type UnwrappedResponse<T> = {
+  data: T;
+  message?: string;
+  meta?: Record<string, unknown> | null;
+  traceId?: string;
+  success: boolean;
+  raw: unknown;
+};
+
+export function unwrapResponse<T>(response: AxiosResponse<ApiEnvelope<T> | T>): UnwrappedResponse<T> {
+  const payload = response.data as ApiEnvelope<T> | T;
+
+  if (payload && typeof payload === 'object' && 'success' in (payload as ApiEnvelope<T>)) {
+    const envelope = payload as ApiEnvelope<T>;
+
+    if (!envelope.success) {
+      const failure = envelope as ApiFailureEnvelope;
+      const error: Error & { code?: string; traceId?: string; details?: unknown } = new Error(failure.message || 'Request failed');
+      error.code = failure.code;
+      error.traceId = failure.traceId;
+      error.details = failure.details;
+      throw error;
+    }
+
+    return {
+      data: (envelope as ApiSuccessEnvelope<T>).data as T,
+      message: envelope.message,
+      meta: envelope.meta ?? null,
+      traceId: envelope.traceId,
+      success: true,
+      raw: payload,
+    };
+  }
+
+  return {
+    data: payload as T,
+    message: undefined,
+    meta: null,
+    traceId: undefined,
+    success: true,
+    raw: payload,
+  };
+}
+
+// Request interceptor to add auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth-storage');
+      if (token) {
+        try {
+          const authData = JSON.parse(token);
+          if (authData.state?.token) {
+            config.headers.Authorization = `Bearer ${authData.state.token}`;
+          }
+        } catch (error) {
+          console.error('Error parsing auth token:', error);
+        }
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor for error handling
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Redirect to login on unauthorized
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth-storage');
+        window.location.href = '/auth/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// -----------------------------------------------------------------------------
+// Fetch wrapper + Zod validation
+// -----------------------------------------------------------------------------
+
+const DEFAULT_TIMEOUT_MS = 20_000;
+export { DEFAULT_TIMEOUT_MS };
+
+type ApiFetchOptions = RequestInit & {
+  timeoutMs?: number;
+};
+
+const toAbsoluteUrl = (path: string): string => {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  if (!path.startsWith('/')) {
+    return `${API_BASE_URL}/${path}`;
+  }
+  return `${API_BASE_URL}${path}`;
+};
+
+const isFormData = (value: unknown): value is FormData =>
+  typeof FormData !== 'undefined' && value instanceof FormData;
+
+const getAuthHeader = (): string | undefined => {
+  if (API_BEARER_TOKEN) {
+    return `Bearer ${API_BEARER_TOKEN}`;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = window.localStorage.getItem('auth-storage');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.state?.token) {
+          return `Bearer ${parsed.state.token}`;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to read auth token from storage', error);
+    }
+  }
+  return undefined;
+};
+
+export async function apiFetch<T = unknown>(
+  path: string,
+  options: ApiFetchOptions = {}
+): Promise<T> {
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, headers: requestHeaders, signal, ...init } = options;
+  const controller = new AbortController();
+  const timeoutId =
+    timeoutMs > 0 && !signal
+      ? setTimeout(() => controller.abort(), timeoutMs)
+      : undefined;
+
+  const headers = new Headers(requestHeaders ?? {});
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/json');
+  }
+
+  const body = init.body;
+  if (body && !isFormData(body) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const authHeader = getAuthHeader();
+  if (authHeader && !headers.has('Authorization')) {
+    headers.set('Authorization', authHeader);
+  }
+
+  const url = toAbsoluteUrl(path);
+
+  try {
+    const response = await fetch(url, {
+      ...init,
+      headers,
+      signal: signal ?? controller.signal,
+    });
+
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    const isJsonResponse = response.headers
+      .get('content-type')
+      ?.includes('application/json');
+
+    let parsedBody: unknown = undefined;
+    if (response.status !== 204) {
+      if (isJsonResponse) {
+        try {
+          parsedBody = await response.json();
+        } catch {
+          parsedBody = undefined;
+        }
+      } else {
+        const text = await response.text();
+        parsedBody = text;
+      }
+    }
+
+    if (!response.ok) {
+      const parsedError = ApiErrorSchema.safeParse(parsedBody);
+      const error = new Error(
+        parsedError.success
+          ? parsedError.data.message
+          : `Request failed with status ${response.status}`
+      ) as Error & { status?: number; code?: string; details?: unknown };
+      error.status = response.status;
+      if (parsedError.success) {
+        error.code = parsedError.data.code;
+        error.details = parsedError.data.details;
+      } else {
+        error.details = parsedBody;
+      }
+      throw error;
+    }
+
+    return parsedBody as T;
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') {
+      const abortError = new Error('请求超时，请稍后重试 / Request timed out, please retry') as Error & {
+        status?: number;
+        code?: string;
+      };
+      abortError.code = 'TIMEOUT';
+      abortError.status = 408;
+      throw abortError;
+    }
+    throw error;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+export const withZod =
+  <Schema extends z.ZodTypeAny>(schema: Schema) =>
+  async <Value>(promise: Promise<Value>): Promise<z.infer<Schema>> => {
+    const data = await promise;
+    return schema.parse(data);
+  };
+
+// -----------------------------------------------------------------------------
+// Specialized AI matching endpoints
+// -----------------------------------------------------------------------------
+
+const UploadResponseSchema = z.object({
+  uploadId: z.string(),
+  filename: z.string(),
+  size: z.number(),
+  mimeType: z.string().nullable().optional(),
+});
+
+export type UploadFileResponse = z.infer<typeof UploadResponseSchema>;
+
+const ExtractionStatusSchema = z.object({
+  status: z.enum(['queued', 'processing', 'done', 'error']),
+  data: ExtractedPatientSchema.optional(),
+  message: z.string().optional(),
+});
+
+export type ExtractionStatusResponse = z.infer<typeof ExtractionStatusSchema>;
+
+const MatchResponseSchema = z.object({
+  trials: z.array(TrialMatchSchema),
+});
+
+const parseUpload = withZod(UploadResponseSchema);
+const parseExtraction = withZod(ExtractionStatusSchema);
+const parseMatch = withZod(MatchResponseSchema);
+
+export async function uploadFile(file: File): Promise<UploadFileResponse> {
+  if (SHOULD_USE_MOCKS) {
+    return mockApi.uploadFile(file);
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return parseUpload(
+    apiFetch('/api/medical/upload', {
+      method: 'POST',
+      body: formData,
+      timeoutMs: 30_000,
+    })
+  );
+}
+
+export async function pollExtraction(uploadId: string): Promise<ExtractionStatusResponse> {
+  if (SHOULD_USE_MOCKS) {
+    return mockApi.pollExtraction(uploadId);
+  }
+
+  const search = new URLSearchParams({ uploadId });
+  return parseExtraction(
+    apiFetch(`/api/extract?${search.toString()}`, {
+      method: 'GET',
+      timeoutMs: DEFAULT_TIMEOUT_MS,
+    })
+  );
+}
+
+export async function postMatch(patient: ExtractedPatient): Promise<TrialMatch[]> {
+  if (SHOULD_USE_MOCKS) {
+    return mockApi.postMatch(patient);
+  }
+
+  const response = await parseMatch(
+    apiFetch('/api/match', {
+      method: 'POST',
+      body: JSON.stringify({ patient }),
+      timeoutMs: DEFAULT_TIMEOUT_MS,
+    })
+  );
+
+  return response.trials;
+}
+
+export const apiHelpers = {
+  uploadFile,
+  pollExtraction,
+  postMatch,
+};

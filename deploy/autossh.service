@@ -1,0 +1,28 @@
+[Unit]
+Description=AutoSSH reverse tunnels for clinical trial platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/trial-match/deploy/autossh.env
+ExecStart=/usr/bin/autossh -M 0 \
+  -o "ServerAliveInterval=30" \
+  -o "ServerAliveCountMax=3" \
+  -o "ExitOnForwardFailure=yes" \
+  -o "ControlMaster=auto" \
+  -o "ControlPath=${AUTOSSH_CONTROL_PATH}" \
+  -o "ControlPersist=600" \
+  -N \
+  -R ${REMOTE_FRONTEND_PORT}:localhost:${LOCAL_FRONTEND_PORT} \
+  -R ${REMOTE_OCR_PORT}:localhost:${LOCAL_OCR_PORT} \
+  -R ${REMOTE_MEDICAL_PORT}:localhost:${LOCAL_MEDICAL_PORT} \
+  -R ${REMOTE_MATCH_PORT}:localhost:${LOCAL_MATCH_PORT} \
+  -p ${AUTOSSH_SSH_PORT} \
+  -i ${SSH_IDENTITY_FILE} \
+  ${AUTOSSH_REMOTE_USER}@${AUTOSSH_REMOTE_HOST}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

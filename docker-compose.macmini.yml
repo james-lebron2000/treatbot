@@ -1,0 +1,26 @@
+services:
+  # Mac mini (single-machine) deployment override:
+  # - Use bind mounts to a host data directory for easy backup/migration.
+  # - Keep container paths unchanged (/data/db, /data, /app/uploads).
+  #
+  # Usage:
+  #   export HOST_DATA_DIR="$HOME/ClinicalMatchData"
+  #   docker compose -f docker-compose.yml -f docker-compose.macmini.yml up -d --build
+
+  mongodb:
+    volumes:
+      - ${HOST_DATA_DIR:-./.macmini-data}/mongodb:/data/db
+
+  redis:
+    volumes:
+      - ${HOST_DATA_DIR:-./.macmini-data}/redis:/data
+
+  backend:
+    volumes:
+      - ${HOST_DATA_DIR:-./.macmini-data}/uploads:/app/uploads
+      - ./data:/app/data
+
+  ocr-service:
+    volumes:
+      - ${HOST_DATA_DIR:-./.macmini-data}/uploads:/app/uploads
+

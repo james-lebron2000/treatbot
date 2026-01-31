@@ -1,0 +1,31 @@
+Extract molecular testing results.
+
+Rules:
+- Output JSON only (no comments, no markdown).
+- Include `confidence`, `reasoning`, and `evidence` copied from the source text.
+
+Schema:
+{
+  "genetic_mutations": [
+    {
+      "gene": string,
+      "status": "突变" | "野生型" | "扩增" | "融合" | "缺失" | string,
+      "variant": string | null,
+      "detection_method": string | null
+    }
+  ],
+  "msi_status": "MSI-H" | "MSI-L" | "MSS" | null,
+  "pd_l1_status": {
+    "value": number | null,
+    "unit": "%" | null,
+    "assay": string | null
+  },
+  "tmb": {
+    "value": number | null,
+    "unit": "mut/Mb" | null
+  },
+  "other_biomarkers": string[] | [],
+  "confidence": "high" | "medium" | "low",
+  "reasoning": string,
+  "evidence": string | null
+}

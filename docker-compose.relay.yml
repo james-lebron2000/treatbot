@@ -1,0 +1,16 @@
+services:
+  # Expose internal services on host ports so autossh can reverse-tunnel them.
+  # This matches the existing relay Nginx template:
+  # - remote :8300 -> local frontend
+  # - remote :8501 -> local OCR
+  # - remote :8502 -> local backend API
+  #
+  # Override ports if you already have services on 5001/5002.
+  ocr-service:
+    ports:
+      - "${LOCAL_OCR_PORT:-5001}:5002"
+
+  backend:
+    ports:
+      - "${LOCAL_MEDICAL_PORT:-5002}:5001"
+

@@ -1,0 +1,109 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+client/build/
+client/.next/
+client/out/
+server/build/
+dist/
+.cache/
+coverage/
+
+# Client-specific ignores
+client/node_modules/
+client/.env*
+client/.vercel
+
+# Environment files (never commit secrets)
+.env
+.env.local
+.env.*.local
+server/.env
+server/.env.local
+python_ocr_service/.env
+
+# Uploads and temp files
+uploads/
+server/uploads/
+.macmini-data/
+tmp/
+*.tmp
+
+# Patient/clinical data & generated outputs (never commit)
+data/
+exports/
+
+# Logs
+*.log
+logs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+python_ocr_service/.venv/
+venv/
+
+# OS / Editors
+.DS_Store
+.idea/
+.vscode/
+
+# Local AI tooling config
+.claude/
+
+# Deployment scripts
+*.sh
+!docker-setup.sh
+!scripts/*.sh
+!deploy/*.sh
+!deploy/**/*.sh
+
+# Deployment documentation (local setup guides)
+DEPLOYMENT_SCRIPTS_GUIDE.md
+SEPARATED_DEPLOYMENT_GUIDE.md
+SSH_KEY_SETUP_MANUAL.md
+SSH_PASSWORD_SETUP.md
+REMOTE_ACCESS_GUIDE.md
+SSH_TUNNEL_SETUP.md
+
+# Process ID files
+pids/
+*.pid
+.pm2/
+
+# Test and experimental files
+archive/
+experiments/
+notes/
+samples/
+reports/
+start-local-only.sh
+ssh-tunnel-manual-v1.2.sh
+start-local-only.sh
+start-local-only.sh
+start-local-only.sh
+start-local-only.sh
+start-local-only.sh
+ssh-tunnel-manual.sh
+start-local-only.sh
+start-local-only.sh
+start-local-only.sh
+start-local-only.sh
+start-local-only.sh
+start-local-only.sh
+start-local-only.sh
+
+# Env files (do not commit)
+.env*
+server/.env*
+python_ocr_service/.env
+client/.env*
+deploy/.env*
+deploy/autossh*.env

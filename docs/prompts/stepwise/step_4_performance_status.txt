@@ -1,0 +1,20 @@
+Extract performance status and survival expectations.
+
+Rules:
+- Output JSON only (no comments, no markdown).
+- Include `confidence`, `reasoning`, and `evidence` copied from the source text.
+
+Schema:
+{
+  "ecog_score": 0 | 1 | 2 | 3 | 4 | null,
+  "kps_score": integer (0-100, multiples of 10) | null,
+  "expected_survival_months": number | null,
+  "functional_status_description": string | null,
+  "confidence": "high" | "medium" | "low",
+  "reasoning": string,
+  "evidence": string | null
+}
+
+Guidance:
+- Derive ECOG from descriptions (e.g., "可独立生活" → 1).
+- If survival not mentioned, return null.
