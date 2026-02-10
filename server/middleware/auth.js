@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config');
+const requestContext = require('../utils/requestContext');
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -27,6 +28,7 @@ const authenticateToken = (req, res, next) => {
     req.userRole = role;
     // expose the same shape newer controllers expect while keeping backwards compatibility
     req.user = { userId: decoded.userId, role };
+    requestContext.merge({ userId: decoded.userId, role });
     next();
   });
 };

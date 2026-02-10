@@ -451,7 +451,7 @@ class StepwiseLLMService {
           await medicalRecord.save();
 
           if (medicalRecord.patientId) {
-            await Patient.findByIdAndUpdate(medicalRecord.patientId, {
+            await Patient.findOneAndUpdate({ _id: medicalRecord.patientId, userId: jobInfo.userId }, {
               latestRecordId: medicalRecord._id,
               latestClinicalArchive: updatedArchive,
               latestStructuredData: legacyStructured,

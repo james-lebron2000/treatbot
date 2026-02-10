@@ -43,7 +43,7 @@ async function refreshPatientLatestData(patientId, userId) {
       .sort({ uploadDate: -1 });
 
     if (latestRecord) {
-      await Patient.findByIdAndUpdate(patientId, {
+      await Patient.findOneAndUpdate({ _id: patientId, userId }, {
         latestRecordId: latestRecord._id,
         latestStructuredData: latestRecord.structuredData,
         latestClinicalArchive: latestRecord.clinicalArchive,

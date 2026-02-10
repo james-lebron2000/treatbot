@@ -413,7 +413,7 @@ async function createRecordFromOCR(req, res, next) {
     await cacheService.del(`records:${req.userId}`);
 
     if (linkedPatientId) {
-      await Patient.findByIdAndUpdate(linkedPatientId, {
+      await Patient.findOneAndUpdate({ _id: linkedPatientId, userId: req.userId }, {
         latestRecordId: medicalRecord._id,
         $currentDate: { updatedAt: true }
       }).catch((err) => logger.warn({ err, patientId: linkedPatientId }, 'Failed to update patient latest record (OCR create)'));

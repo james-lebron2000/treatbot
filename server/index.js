@@ -12,6 +12,7 @@ const responseFormatter = require('./middleware/responseFormatter');
 const errorHandler = require('./middleware/errorHandler');
 const { pingRedis, isRedisEnabled } = require('./config/redis');
 const { metricsMiddleware, metricsHandler } = require('./monitoring/metrics');
+const requestContext = require('./utils/requestContext');
 
 const app = express();
 app.disable('x-powered-by');
@@ -48,7 +49,7 @@ const corsOptions = {
 app.use((req, res, next) => {
   req.id = resolveRequestId(req);
   res.setHeader('X-Request-Id', req.id);
-  next();
+  requestContext.run({ traceId: req.id }, () => next());
 });
 
 app.use(helmet({ crossOriginResourcePolicy: false }));

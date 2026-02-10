@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { createLogger, format, transports } = require('winston');
+const requestContext = require('./requestContext');
 
 const LOG_DIR = path.join(__dirname, '..', '..', 'logs');
 
@@ -13,7 +14,24 @@ const defaultLevel = process.env.NODE_ENV === 'test'
   : (process.env.NODE_ENV === 'production' ? 'info' : 'debug');
 const level = process.env.LOG_LEVEL || defaultLevel;
 
+const injectRequestContext = format((info) => {
+  const ctx = requestContext.get();
+  if (ctx) {
+    if (info.traceId === undefined && typeof ctx.traceId === 'string') {
+      info.traceId = ctx.traceId;
+    }
+    if (info.userId === undefined && typeof ctx.userId === 'string') {
+      info.userId = ctx.userId;
+    }
+    if (info.role === undefined && typeof ctx.role === 'string') {
+      info.role = ctx.role;
+    }
+  }
+  return info;
+});
+
 const consoleFormat = format.combine(
+  injectRequestContext(),
   format.colorize({ all: true }),
   format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   format.printf(({ timestamp, level, message, ...meta }) => {
@@ -23,6 +41,7 @@ const consoleFormat = format.combine(
 );
 
 const jsonFormat = format.combine(
+  injectRequestContext(),
   format.timestamp(),
   format.errors({ stack: true }),
   format.splat(),

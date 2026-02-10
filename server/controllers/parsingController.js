@@ -304,7 +304,7 @@ async function parseMedicalText(req, res, next) {
     }
 
     if (linkedPatientId) {
-      await Patient.findByIdAndUpdate(linkedPatientId, {
+      await Patient.findOneAndUpdate({ _id: linkedPatientId, userId: req.userId }, {
         latestRecordId: medicalRecord._id,
         latestStructuredData: structuredData,
         latestClinicalArchive: baseArchive,
