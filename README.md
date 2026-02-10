@@ -1,12 +1,18 @@
-# Clinical Trial Matching Platform Demo
+# Treatbot (Clinical Trial Matching Demo)
 
-A Next.js + Node.js + MongoDB-based clinical trial matching demonstration platform that helps patients quickly find matching clinical trials.
+A Next.js + Node.js + MongoDB-based clinical trial matching platform demo that helps patients upload medical records, extract/structure key fields, and match relevant clinical trials.
 
 ## 产品文档（中文）
 
 更完整的产品级说明（PRD/用户指南/运维/API/隐私安全/验收）见：`docs/product/zh-CN/README.md`。
 
 ## 🎉 Latest Updates
+
+### vNext (2026-02-10) - Security, Testing, Tracing ✅
+- Enforced **record ownership** checks on critical medical record flows (prevents cross-user access)
+- Added end-to-end **request tracing**: `X-Request-Id` header + response `traceId`
+- Added Jest + Supertest integration tests (including ownership regression tests)
+- Frontend lint is clean (`npm -C client run lint`)
 
 ### v2.2 (2025-10-03) - Code Quality & Cleanup ✅
 - Removed 10+ unused variables and 7 unused imports
@@ -70,7 +76,7 @@ A Next.js + Node.js + MongoDB-based clinical trial matching demonstration platfo
 ## Quick Start
 
 ### Prerequisites
-- Node.js (v16+)
+- Node.js (v18+ recommended)
 - MongoDB (local or cloud)
 - Redis (for production queue/caching; optional in mock mode)
 - npm or yarn
@@ -80,7 +86,7 @@ A Next.js + Node.js + MongoDB-based clinical trial matching demonstration platfo
 1. **Clone the project**
 ```bash
 git clone <repository-url>
-cd trial-match
+cd treatbot
 ```
 
 2. **Install all dependencies**
@@ -132,6 +138,9 @@ ALLOW_OCR_MOCK=false
 CORS_ALLOWED_ORIGINS=http://localhost:3000
 CORS_ALLOWED_METHODS=GET,HEAD,PUT,PATCH,POST,DELETE
 CORS_ALLOW_CREDENTIALS=true
+
+# Optional: grant admin role at registration (comma-separated emails)
+ADMIN_EMAILS=admin@example.com,admin2@example.com
 
 # Rate limiting (per IP)
 RATE_LIMIT_POINTS=120
@@ -222,10 +231,26 @@ cp ./deploy/autossh.docker-compose.env.example ./deploy/autossh.env
 - Errors include HTTP-appropriate status codes, a `code` field when available, and share the `traceId` for log correlation.
 - Rate limiting and authentication failures now surface consistent error bodies so the frontend can display actionable feedback.
 
+### Request Tracing (X-Request-Id / traceId)
+- Clients can provide `X-Request-Id` on requests.
+- Backend echoes it back as response header `X-Request-Id` and embeds the same value in the JSON envelope `traceId`.
+- Frontend API client auto-injects `X-Request-Id` for axios requests.
+
+## Testing
+
+```bash
+# backend/unit+integration tests (Jest)
+npm test
+
+# frontend lint/build
+npm -C client run lint
+npm -C client run build
+```
+
 ## Project Structure
 
 ```
-trial-match/
+treatbot/
 ├── client/                 # Next.js Frontend
 │   ├── src/
 │   │   ├── components/     # Reusable components
@@ -280,7 +305,7 @@ trial-match/
 
 ## Development Notes
 
-1. **Security**: This project is for demonstration purposes, production environments require enhanced security measures
+1. **Security**: This project is for demonstration purposes. Production environments require additional hardening (rate limits, audit logging, stricter CORS, etc.).
 2. **Data Privacy**: Medical data needs to comply with privacy regulations like HIPAA
 3. **Performance Optimization**: Large file processing requires consideration of performance and storage
 4. **Error Handling**: Add more comprehensive error handling and logging
