@@ -1,4 +1,4 @@
-import { apiClient, unwrapResponse, API_BASE_URL } from '@/lib/api';
+import { apiClient, unwrapResponse, API_BASE_URL, ApiError } from '@/lib/api';
 import {
   ClinicalArchive,
   JsonValue,
@@ -82,6 +82,16 @@ export interface UploadFilesResponse {
   results?: Array<Record<string, JsonValue>>;
   overallMetadata?: Record<string, JsonValue>;
 }
+
+const getErrorMessage = (error: unknown): string | undefined => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const maybe = error as { message?: unknown };
+    if (typeof maybe.message === 'string') return maybe.message;
+  }
+  return undefined;
+};
 
 const processMatchBatchRequest = async (recordId: string, data: { restart?: boolean; batchSize?: number } = {}): Promise<MatchBatchResponse> => {
   const response = await apiClient.post(`/medical/match/${recordId}/batch`, data);
@@ -297,14 +307,13 @@ export const medicalApi = {
       }
 
       return { ...data, message };
-    } catch (error: any) {
-      // Re-throw ApiError as-is (from interceptor)
-      if (error.name === 'ApiError') {
+    } catch (error: unknown) {
+      if (error instanceof ApiError) {
         throw error;
       }
 
       // Wrap other errors with user-friendly message
-      throw new Error(error.message || '文件上传失败，请稍后重试。');
+      throw new Error(getErrorMessage(error) || '文件上传失败，请稍后重试。');
     }
   },
 
@@ -350,12 +359,12 @@ export const medicalApi = {
       }
 
       return message ? { ...payload, message } : payload;
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
+    } catch (error: unknown) {
+      if (error instanceof ApiError) {
         throw error;
       }
 
-      throw new Error(error.message || '病历文本解析失败，请稍后重试。');
+      throw new Error(getErrorMessage(error) || '病历文本解析失败，请稍后重试。');
     }
   },
 
@@ -397,12 +406,12 @@ export const medicalApi = {
         reused: false,
         message
       };
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
+    } catch (error: unknown) {
+      if (error instanceof ApiError) {
         throw error;
       }
 
-      throw new Error(error.message || '临床试验匹配失败，请稍后重试。');
+      throw new Error(getErrorMessage(error) || '临床试验匹配失败，请稍后重试。');
     }
   },
 
@@ -461,8 +470,8 @@ export const medicalApi = {
       }
 
       return { ...payload, message };
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
+    } catch (error: unknown) {
+      if (error instanceof ApiError) {
         throw error;
       }
 
@@ -472,7 +481,7 @@ export const medicalApi = {
         entries: {},
         structuredData: {},
         metadata: {},
-        message: error.message || '字段抽取失败，请稍后重试。'
+        message: getErrorMessage(error) || '字段抽取失败，请稍后重试。'
       };
     }
   },
@@ -488,8 +497,8 @@ export const medicalApi = {
       }
 
       return { ...payload, message };
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
+    } catch (error: unknown) {
+      if (error instanceof ApiError) {
         throw error;
       }
 
@@ -499,7 +508,7 @@ export const medicalApi = {
         structuredData: null,
         timeline: null,
         metadata: undefined,
-        message: error.message || '医疗记录整合失败，请稍后重试。',
+        message: getErrorMessage(error) || '医疗记录整合失败，请稍后重试。',
       };
     }
   },
@@ -529,7 +538,7 @@ export const medicalApi = {
       return (data as { report: Record<string, JsonValue> }).report;
     }
     // Defensive fallback
-    return (data as any) || {};
+    return data && typeof data === 'object' ? (data as Record<string, JsonValue>) : {};
   },
 
   // Update a medical record

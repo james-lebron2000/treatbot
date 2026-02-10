@@ -93,12 +93,10 @@ export const patientsApi = {
           ? data.patients
           : [];
       return patients.map(mapPatient);
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
-        throw error;
-      }
-
-      throw new Error(error.message || '患者列表加载失败，请稍后重试。');
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string };
+      if (err?.name === 'ApiError') throw error;
+      throw new Error(err?.message || '患者列表加载失败，请稍后重试。');
     }
   },
 
@@ -116,12 +114,10 @@ export const patientsApi = {
       }
 
       return mapPatient(patient);
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
-        throw error;
-      }
-
-      throw new Error(error.message || '患者详情加载失败，请稍后重试。');
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string };
+      if (err?.name === 'ApiError') throw error;
+      throw new Error(err?.message || '患者详情加载失败，请稍后重试。');
     }
   },
 
@@ -153,12 +149,10 @@ export const patientsApi = {
           (payload && 'autoAdjustedPatientId' in payload ? payload.autoAdjustedPatientId : null) ?? null,
         message,
       };
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
-        throw error;
-      }
-
-      throw new Error(error.message || '创建患者失败，请稍后重试。');
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string };
+      if (err?.name === 'ApiError') throw error;
+      throw new Error(err?.message || '创建患者失败，请稍后重试。');
     }
   },
 
@@ -181,12 +175,10 @@ export const patientsApi = {
       }
 
       return mapPatient(rawPatient);
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
-        throw error;
-      }
-
-      throw new Error(error.message || '更新患者信息失败，请稍后重试。');
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string };
+      if (err?.name === 'ApiError') throw error;
+      throw new Error(err?.message || '更新患者信息失败，请稍后重试。');
     }
   },
 
@@ -194,12 +186,10 @@ export const patientsApi = {
   deletePatient: async (id: string): Promise<void> => {
     try {
       await apiClient.delete(`/patients/${id}`);
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
-        throw error;
-      }
-
-      throw new Error(error.message || '删除患者失败，请稍后重试。');
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string };
+      if (err?.name === 'ApiError') throw error;
+      throw new Error(err?.message || '删除患者失败，请稍后重试。');
     }
   },
 
@@ -221,12 +211,10 @@ export const patientsApi = {
         return data.records;
       }
       return [];
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
-        throw error;
-      }
-
-      throw new Error(error.message || '患者病历记录加载失败，请稍后重试。');
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string };
+      if (err?.name === 'ApiError') throw error;
+      throw new Error(err?.message || '患者病历记录加载失败，请稍后重试。');
     }
   },
 };

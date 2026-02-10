@@ -431,7 +431,13 @@ class StepwiseLLMService {
 
     if (jobInfo.recordId) {
       try {
-        const medicalRecord = await MedicalRecord.findById(jobInfo.recordId);
+        if (!jobInfo.userId) {
+          logger.error({ jobId, recordId: jobInfo.recordId }, 'Stepwise job missing userId; refusing to persist results to record');
+          // Continue the job lifecycle, but do not touch records without ownership context.
+          throw new Error('Missing userId for record persistence');
+        }
+
+        const medicalRecord = await MedicalRecord.findOne({ _id: jobInfo.recordId, userId: jobInfo.userId });
         if (!medicalRecord) {
           logger.warn({ jobId, recordId: jobInfo.recordId }, 'Stepwise extraction completed but medical record missing');
         } else {

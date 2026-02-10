@@ -47,8 +47,27 @@ const OTP_TTL_SECONDS = Number(process.env.OTP_TTL_SECONDS || 300); // 5 min
 const OTP_RESEND_COOLDOWN_SECONDS = Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 30);
 const OTP_MAX_FAILED_ATTEMPTS = Number(process.env.OTP_MAX_FAILED_ATTEMPTS || 5);
 
-function issueToken(userId) {
-  return jwt.sign({ userId }, config.jwtSecret, { expiresIn: config.auth.accessTokenTtl });
+function resolveUserRole(user) {
+  const role = user && typeof user.role === 'string' ? user.role : 'user';
+  return role === 'admin' ? 'admin' : 'user';
+}
+
+function isAdminEmail(email) {
+  const raw = String(process.env.ADMIN_EMAILS || '').trim();
+  if (!raw) return false;
+  const set = new Set(
+    raw
+      .split(',')
+      .map((v) => v.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  return set.has(String(email || '').trim().toLowerCase());
+}
+
+function issueToken(user) {
+  const userId = user?._id || user?.id || user?.userId || user;
+  const role = resolveUserRole(user);
+  return jwt.sign({ userId, role }, config.jwtSecret, { expiresIn: config.auth.accessTokenTtl });
 }
 
 function normalizePhoneForUser(user) {
@@ -63,6 +82,7 @@ function toPublicUser(user) {
     email: user.email,
     phone: normalizePhoneForUser(user),
     name: user.name,
+    role: resolveUserRole(user),
     createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : undefined
   };
 }
@@ -86,6 +106,7 @@ router.post('/register', rateLimit('register', { points: 5, duration: 60 }), asy
     email,
     password: hashedPassword,
     name,
+    role: isAdminEmail(email) ? 'admin' : 'user',
     lastLoginAt: new Date(),
     consents: {
       complianceSecurityAgreement: {
@@ -100,7 +121,7 @@ router.post('/register', rateLimit('register', { points: 5, duration: 60 }), asy
 
   await user.save();
 
-  const token = issueToken(user._id);
+  const token = issueToken(user);
 
   logger.info({ userId: user._id, email: user.email }, 'User registered');
 
@@ -219,7 +240,7 @@ router.post('/otp/verify', rateLimit('otp_verify', { points: 20, duration: 60 })
   user.lastLoginAt = new Date();
   await user.save();
 
-  const token = issueToken(user._id);
+  const token = issueToken(user);
   return res.success({ token, user: toPublicUser(user) }, { message: 'Login successful' });
 }));
 
@@ -255,7 +276,7 @@ router.post('/login', rateLimit('login', { points: 10, duration: 60 }), asyncHan
     throw new BadRequestError('Invalid credentials');
   }
 
-  const token = issueToken(user._id);
+  const token = issueToken(user);
 
   user.failedLoginAttempts = 0;
   user.lockUntil = null;

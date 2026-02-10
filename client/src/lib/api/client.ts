@@ -10,7 +10,7 @@
 // ============================================================================
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { ApiError, fromAxiosError } from './errors';
+import { fromAxiosError } from './errors';
 
 // ----------------------------------------------------------------------------
 // 环境配置
@@ -19,6 +19,56 @@ import { ApiError, fromAxiosError } from './errors';
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001/api';
 const API_TIMEOUT = 30000; // 30 秒超时
 const IS_DEV = process.env.NODE_ENV === 'development';
+
+const createRequestId = (): string => {
+  // Prefer native UUID (browser / modern runtimes).
+  const cryptoObj = (globalThis as unknown as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (cryptoObj?.randomUUID) {
+    return cryptoObj.randomUUID();
+  }
+  // Fallback: still unique enough for tracing, not for security.
+  return `rid_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const hasHeader = (config: AxiosRequestConfig, key: string): boolean => {
+  const headers = config.headers as unknown;
+  if (!headers || typeof headers !== 'object') return false;
+
+  const maybeAxiosHeaders = headers as { has?: (k: string) => boolean };
+  if (typeof maybeAxiosHeaders.has === 'function') {
+    return maybeAxiosHeaders.has(key);
+  }
+
+  const record = headers as Record<string, unknown>;
+  return record[key] !== undefined || record[key.toLowerCase()] !== undefined;
+};
+
+const setHeaderIfMissing = (config: AxiosRequestConfig, key: string, value: string): boolean => {
+  if (!config.headers) {
+    config.headers = { [key]: value };
+    return true;
+  }
+
+  const headers = config.headers as unknown;
+  if (headers && typeof headers === 'object') {
+    const maybeAxiosHeaders = headers as { has?: (k: string) => boolean; set?: (k: string, v: string) => void };
+    if (typeof maybeAxiosHeaders.set === 'function') {
+      const alreadySet = typeof maybeAxiosHeaders.has === 'function' ? maybeAxiosHeaders.has(key) : false;
+      if (!alreadySet) {
+        maybeAxiosHeaders.set(key, value);
+        return true;
+      }
+      return false;
+    }
+
+    const record = headers as Record<string, unknown>;
+    if (record[key] === undefined) {
+      record[key] = value;
+      return true;
+    }
+  }
+  return false;
+};
 
 // ----------------------------------------------------------------------------
 // 创建 axios 实例
@@ -38,6 +88,11 @@ export const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
+    // Ensure request id exists for end-to-end tracing (frontend -> proxy -> backend).
+    if (!hasHeader(config, 'X-Request-Id')) {
+      setHeaderIfMissing(config, 'X-Request-Id', createRequestId());
+    }
+
     // 开发环境：打印请求日志
     if (IS_DEV) {
       console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`, {
@@ -129,7 +184,7 @@ apiClient.interceptors.response.use(
  * 注意：拦截器已自动解包 { success, data } 结构
  * 这个函数主要用于类型提取和向后兼容
  */
-export function unwrapResponse<T = any>(response: AxiosResponse): { data: T; message?: string } {
+export function unwrapResponse<T = unknown>(response: AxiosResponse): { data: T; message?: string } {
   // 如果响应已经被拦截器解包，直接使用
   return {
     data: response.data as T,
@@ -143,7 +198,7 @@ export function unwrapResponse<T = any>(response: AxiosResponse): { data: T; mes
  * 用法：
  *   const user = await get<User>('/users/me');
  */
-export async function get<T = any>(
+export async function get<T = unknown>(
   url: string,
   config?: AxiosRequestConfig
 ): Promise<T> {
@@ -157,9 +212,9 @@ export async function get<T = any>(
  * 用法：
  *   const result = await post<LoginResponse>('/auth/login', { email, password });
  */
-export async function post<T = any>(
+export async function post<T = unknown>(
   url: string,
-  data?: any,
+  data?: unknown,
   config?: AxiosRequestConfig
 ): Promise<T> {
   const response = await apiClient.post<T>(url, data, config);
@@ -169,9 +224,9 @@ export async function post<T = any>(
 /**
  * PUT 请求辅助函数
  */
-export async function put<T = any>(
+export async function put<T = unknown>(
   url: string,
-  data?: any,
+  data?: unknown,
   config?: AxiosRequestConfig
 ): Promise<T> {
   const response = await apiClient.put<T>(url, data, config);
@@ -181,9 +236,9 @@ export async function put<T = any>(
 /**
  * PATCH 请求辅助函数
  */
-export async function patch<T = any>(
+export async function patch<T = unknown>(
   url: string,
-  data?: any,
+  data?: unknown,
   config?: AxiosRequestConfig
 ): Promise<T> {
   const response = await apiClient.patch<T>(url, data, config);
@@ -193,7 +248,7 @@ export async function patch<T = any>(
 /**
  * DELETE 请求辅助函数
  */
-export async function del<T = any>(
+export async function del<T = unknown>(
   url: string,
   config?: AxiosRequestConfig
 ): Promise<T> {
@@ -213,12 +268,12 @@ export async function del<T = any>(
  *     onUploadProgress: (percent) => console.log(percent)
  *   });
  */
-export async function uploadFile<T = any>(
+export async function uploadFile<T = unknown>(
   url: string,
   file: File,
   options?: {
     onUploadProgress?: (percent: number) => void;
-    additionalData?: Record<string, any>;
+    additionalData?: Record<string, unknown>;
   }
 ): Promise<T> {
   const formData = new FormData();
@@ -249,12 +304,12 @@ export async function uploadFile<T = any>(
 /**
  * 上传多个文件
  */
-export async function uploadFiles<T = any>(
+export async function uploadFiles<T = unknown>(
   url: string,
   files: File[],
   options?: {
     onUploadProgress?: (percent: number) => void;
-    additionalData?: Record<string, any>;
+    additionalData?: Record<string, unknown>;
   }
 ): Promise<T> {
   const formData = new FormData();

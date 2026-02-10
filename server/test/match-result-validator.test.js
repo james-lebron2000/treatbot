@@ -1,4 +1,3 @@
-const assert = require('assert/strict');
 const { validateMatchResults } = require('../utils/matchResultValidator');
 const enhancedMatcher = require('../services/enhancedTrialMatcher');
 
@@ -23,16 +22,17 @@ function sampleMatchResult() {
   }];
 }
 
-function testValidateMatchResults() {
-  const valid = sampleMatchResult();
-  const parsed = validateMatchResults(valid, 'unit-test');
-  assert.equal(parsed.length, 1, 'Should parse a single match result');
-  assert.equal(parsed[0].trial_id, 'CTR20250001');
-  assert.equal(parsed[0].summary.inclusion_met[0], '年龄');
+describe('matchResultValidator.validateMatchResults', () => {
+  test('parses a valid match result array', () => {
+    const valid = sampleMatchResult();
+    const parsed = validateMatchResults(valid, 'unit-test');
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].trial_id).toBe('CTR20250001');
+    expect(parsed[0].summary.inclusion_met[0]).toBe('年龄');
+  });
 
-  let threw = false;
-  try {
-    validateMatchResults([
+  test('throws when trial_id missing', () => {
+    expect(() => validateMatchResults([
       {
         trial_title: '缺少 trial_id',
         match_score: 10,
@@ -40,68 +40,52 @@ function testValidateMatchResults() {
         exclusion_checks: [],
         summary: { inclusion_met: [], exclusion_triggered: [], uncertain: [] }
       }
-    ], 'invalid-case');
-  } catch (error) {
-    threw = true;
-    assert.match(error.message, /trial_id/);
-  }
-  assert.equal(threw, true, 'Validator should throw when trial_id missing');
-}
+    ], 'invalid-case')).toThrow(/trial_id/);
+  });
+});
 
-function testEnhancedMatcherValidation() {
-  const archive = {
-    patient_id: 'P001',
-    basic_info: { name: '张三', gender: 'male', age: '52', date_of_birth: '1973-01-01' },
-    medical_history: {
-      primary_diagnosis: '肝细胞癌',
-      infection_status: { HBV: 'HBV-DNA<50 IU/ml' }
-    },
-    treatment_history: [],
-    pathology: { stage: 'II', histology: 'HCC', molecular_markers: {} },
-    imaging_findings: [],
-    lab_results: {
-      blood_counts: { Platelets: '95×10^9/L' },
-      liver_function: {},
-      renal_function: {},
-      tumor_markers: {}
-    },
-    ecog_score: '1',
-    current_status: { measurable_lesions: true, organ_function_ok: true, estimated_survival_months: '8', symptoms: [] }
-  };
+describe('enhancedTrialMatcher.matchTrialsWithArchive', () => {
+  test('returns a result with expected shape', () => {
+    const archive = {
+      patient_id: 'P001',
+      basic_info: { name: '张三', gender: 'male', age: '52', date_of_birth: '1973-01-01' },
+      medical_history: {
+        primary_diagnosis: '肝细胞癌',
+        infection_status: { HBV: 'HBV-DNA<50 IU/ml' }
+      },
+      treatment_history: [],
+      pathology: { stage: 'II', histology: 'HCC', molecular_markers: {} },
+      imaging_findings: [],
+      lab_results: {
+        blood_counts: { Platelets: '95×10^9/L' },
+        liver_function: {},
+        renal_function: {},
+        tumor_markers: {}
+      },
+      ecog_score: '1',
+      current_status: { measurable_lesions: true, organ_function_ok: true, estimated_survival_months: '8', symptoms: [] }
+    };
 
-  const trials = [
-    {
-      trialId: 'CTR0001',
-      title: '肝癌一线治疗试验',
-      condition: '肝细胞癌',
-      phase: 'Phase III',
-      inclusionCriteria: ['年龄 18-75 岁', 'ECOG ≤ 1'],
-      exclusionCriteria: ['血小板 ≥ 90×10^9/L', '活动性乙肝排除'],
-      targetMutations: [],
-      ageRange: { min: 18, max: 75 },
-      gender: 'both'
-    }
-  ];
+    const trials = [
+      {
+        trialId: 'CTR0001',
+        title: '肝癌一线治疗试验',
+        condition: '肝细胞癌',
+        phase: 'Phase III',
+        inclusionCriteria: ['年龄 18-75 岁', 'ECOG ≤ 1'],
+        exclusionCriteria: ['血小板 ≥ 90×10^9/L', '活动性乙肝排除'],
+        targetMutations: [],
+        ageRange: { min: 18, max: 75 },
+        gender: 'both'
+      }
+    ];
 
-  const matches = enhancedMatcher.matchTrialsWithArchive(archive, trials);
-  assert.equal(matches.length, 1, 'Enhanced matcher should return one result');
-  const [match] = matches;
-  assert.equal(match.trial_id, 'CTR0001');
-  assert.ok(Array.isArray(match.inclusion_checks));
-  assert.ok(Array.isArray(match.exclusion_checks));
-  assert.ok(match.summary);
-}
+    const matches = enhancedMatcher.matchTrialsWithArchive(archive, trials);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].trial_id).toBe('CTR0001');
+    expect(Array.isArray(matches[0].inclusion_checks)).toBe(true);
+    expect(Array.isArray(matches[0].exclusion_checks)).toBe(true);
+    expect(matches[0].summary).toBeTruthy();
+  });
+});
 
-function run() {
-  testValidateMatchResults();
-  testEnhancedMatcherValidation();
-  console.log('✅ match-result-validator tests passed');
-}
-
-try {
-  run();
-} catch (error) {
-  console.error('❌ match-result-validator tests failed');
-  console.error(error);
-  process.exit(1);
-}

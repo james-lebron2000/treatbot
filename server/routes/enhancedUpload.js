@@ -12,6 +12,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const { z } = require('zod');
 const { enhancedUploadService } = require('../services/enhancedUploadService');
 const { authenticateToken } = require('../middleware/auth');
@@ -24,10 +25,15 @@ const requireAuth = authenticateToken;
 // 配置和验证 / Configuration and Validation
 // =============================================================================
 
+const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
 // Multer配置
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, UPLOADS_DIR);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -125,7 +131,7 @@ router.post('/start', requireAuth, upload.single('file'), async (req, res, next)
       file.filename, // 使用文件名作为uploadId
       file,
       patientId,
-      options
+      { ...(options || {}), userId: req.userId }
     );
 
     res.success(result, {

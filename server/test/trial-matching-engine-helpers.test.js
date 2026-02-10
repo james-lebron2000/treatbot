@@ -1,111 +1,96 @@
-const assert = require('assert/strict');
 const TrialMatchingEngine = require('../services/trialMatchingEngine');
 
-function createEngine() {
-  return new TrialMatchingEngine();
-}
+describe('TrialMatchingEngine helper methods (structuredEligibility)', () => {
+  const createEngine = () => new TrialMatchingEngine();
 
-function testStructuredAgeExtraction() {
-  const engine = createEngine();
-  const trial = {
-    structuredEligibility: {
-      inclusion: [
-        { intent: 'age', numeric: { min: 18, max: 70 } }
-      ],
-      exclusion: []
-    }
-  };
+  test('extractAgeRequirements uses structured eligibility and hard-excludes below min age', () => {
+    const engine = createEngine();
+    const trial = {
+      structuredEligibility: {
+        inclusion: [
+          { intent: 'age', numeric: { min: 18, max: 70 } }
+        ],
+        exclusion: []
+      }
+    };
 
-  const requirements = engine.extractAgeRequirements(trial);
-  assert.equal(requirements.min, 18, 'Structured min age should be used');
-  assert.equal(requirements.max, 70, 'Structured max age should be used');
+    const requirements = engine.extractAgeRequirements(trial);
+    expect(requirements.min).toBe(18);
+    expect(requirements.max).toBe(70);
 
-  const exclusion = engine.checkHardExclusions({ age: 16 }, trial);
-  assert.equal(exclusion.isExcluded, true, 'Age below min should trigger exclusion');
-}
+    const exclusion = engine.checkHardExclusions({ age: 16 }, trial);
+    expect(exclusion.isExcluded).toBe(true);
+  });
 
-function testStructuredPlateletThreshold() {
-  const engine = createEngine();
-  const trial = {
-    structuredEligibility: {
-      inclusion: [
-        { intent: 'platelet', numeric: { min: 120, unit: '×10^9/L' } }
-      ],
-      exclusion: []
-    }
-  };
-  const details = [];
-  const patient = {
-    blood_counts: {
-      platelet: 110,
-      hemoglobin: 100,
-      anc: 2
-    },
-    liver_function: {}
-  };
+  test('scoreLabValues reflects structured platelet threshold in details and reduces score', () => {
+    const engine = createEngine();
+    const trial = {
+      structuredEligibility: {
+        inclusion: [
+          { intent: 'platelet', numeric: { min: 120, unit: '×10^9/L' } }
+        ],
+        exclusion: []
+      }
+    };
 
-  const score = engine.scoreLabValues(patient, trial, details);
-  assert.ok(details.some((line) => line.includes('120')), 'Details should reflect structured platelet threshold');
-  assert.ok(score < 10, 'Score should be reduced when platelet below threshold');
-}
+    const details = [];
+    const patient = {
+      blood_counts: {
+        platelet: 110,
+        hemoglobin: 100,
+        anc: 2
+      },
+      liver_function: {}
+    };
 
-function testStructuredHBVExclusion() {
-  const engine = createEngine();
-  const trial = {
-    structuredEligibility: {
-      inclusion: [],
-      exclusion: [
-        { intent: 'hbv', criterion: '活动性乙肝受试者排除' }
-      ]
-    }
-  };
+    const score = engine.scoreLabValues(patient, trial, details);
+    expect(details.some((line) => String(line).includes('120'))).toBe(true);
+    expect(score).toBeLessThan(10);
+  });
 
-  const exclusion = engine.checkHardExclusions({
-    age: 55,
-    viral_hepatitis: { hbv_status: 'HBV-DNA 阳性' }
-  }, trial);
+  test('checkHardExclusions excludes active HBV when exclusion mentions HBV', () => {
+    const engine = createEngine();
+    const trial = {
+      structuredEligibility: {
+        inclusion: [],
+        exclusion: [
+          { intent: 'hbv', criterion: '活动性乙肝受试者排除' }
+        ]
+      }
+    };
 
-  assert.equal(exclusion.isExcluded, true, 'Active HBV should trigger exclusion');
-}
+    const exclusion = engine.checkHardExclusions({
+      age: 55,
+      viral_hepatitis: { hbv_status: 'HBV-DNA 阳性' }
+    }, trial);
 
-function testStructuredBilirubinUsage() {
-  const engine = createEngine();
-  const trial = {
-    structuredEligibility: {
-      inclusion: [
-        { intent: 'bilirubin', numeric: { max: 30, unit: 'μmol/L' } }
-      ],
-      exclusion: []
-    }
-  };
+    expect(exclusion.isExcluded).toBe(true);
+  });
 
-  const details = [];
-  const patient = {
-    primary_diagnosis: '肝细胞癌',
-    blood_counts: {},
-    liver_function: {
-      alt: 120,
-      tbil: 28
-    }
-  };
+  test('scoreLabValues uses structured bilirubin max and reports within-limit detail', () => {
+    const engine = createEngine();
+    const trial = {
+      structuredEligibility: {
+        inclusion: [
+          { intent: 'bilirubin', numeric: { max: 30, unit: 'μmol/L' } }
+        ],
+        exclusion: []
+      }
+    };
 
-  const score = engine.scoreLabValues(patient, trial, details);
-  assert.ok(details.some((line) => line.includes('总胆红素符合要求')), 'Details should reflect bilirubin limit');
-  assert.ok(score > 0, 'Bilirubin within limit should contribute to score');
-}
+    const details = [];
+    const patient = {
+      primary_diagnosis: '肝细胞癌',
+      blood_counts: {},
+      liver_function: {
+        alt: 120,
+        tbil: 28
+      }
+    };
 
-function run() {
-  testStructuredAgeExtraction();
-  testStructuredPlateletThreshold();
-  testStructuredHBVExclusion();
-  testStructuredBilirubinUsage();
-  console.log('✅ trial-matching-engine helper tests passed');
-}
+    const score = engine.scoreLabValues(patient, trial, details);
+    expect(details.some((line) => String(line).includes('总胆红素符合要求'))).toBe(true);
+    expect(score).toBeGreaterThan(0);
+  });
+});
 
-try {
-  run();
-} catch (error) {
-  console.error('❌ trial-matching-engine helper tests failed');
-  console.error(error);
-  process.exit(1);
-}

@@ -8,7 +8,10 @@ if (!fs.existsSync(LOG_DIR)) {
   fs.mkdirSync(LOG_DIR, { recursive: true });
 }
 
-const level = process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug');
+const defaultLevel = process.env.NODE_ENV === 'test'
+  ? 'error'
+  : (process.env.NODE_ENV === 'production' ? 'info' : 'debug');
+const level = process.env.LOG_LEVEL || defaultLevel;
 
 const consoleFormat = format.combine(
   format.colorize({ all: true }),
@@ -35,15 +38,19 @@ const logger = createLogger({
   transports: [
     new transports.Console({
       level,
+      // Keep tests quiet by default; opt in with LOG_LEVEL.
+      silent: process.env.NODE_ENV === 'test' && !process.env.LOG_LEVEL,
       format: process.env.NODE_ENV === 'production' ? jsonFormat : consoleFormat
     }),
-    new transports.File({
-      filename: path.join(LOG_DIR, 'application.log'),
-      level: 'info',
-      format: jsonFormat,
-      maxsize: 5 * 1024 * 1024,
-      maxFiles: 5
-    })
+    ...(process.env.NODE_ENV === 'test' ? [] : [
+      new transports.File({
+        filename: path.join(LOG_DIR, 'application.log'),
+        level: 'info',
+        format: jsonFormat,
+        maxsize: 5 * 1024 * 1024,
+        maxFiles: 5
+      })
+    ])
   ]
 });
 

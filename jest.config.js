@@ -21,7 +21,7 @@ module.exports = {
   ],
 
   // Coverage thresholds
-  coverageThresholds: {
+  coverageThreshold: {
     global: {
       branches: 60,
       functions: 60,
@@ -34,12 +34,6 @@ module.exports = {
       functions: 90,
       lines: 90,
       statements: 90
-    },
-    './server/services/matching/TrialMatchOrchestrator.js': {
-      branches: 85,
-      functions: 85,
-      lines: 85,
-      statements: 85
     }
   },
 

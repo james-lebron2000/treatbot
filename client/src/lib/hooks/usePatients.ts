@@ -41,8 +41,6 @@ import { ApiError } from '@/lib/api';
  * - 支持后台数据刷新
  */
 export function usePatients() {
-  const queryClient = useQueryClient();
-
   return useQuery<Patient[], ApiError>({
     queryKey: ['patients'],
     queryFn: patientsApi.getPatients,

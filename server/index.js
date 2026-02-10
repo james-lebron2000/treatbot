@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const helmet = require('helmet');
 const expressWinston = require('express-winston');
 const config = require('./config');
@@ -13,7 +14,18 @@ const { pingRedis, isRedisEnabled } = require('./config/redis');
 const { metricsMiddleware, metricsHandler } = require('./monitoring/metrics');
 
 const app = express();
+app.disable('x-powered-by');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
+
+function resolveRequestId(req) {
+  const header = req.get('x-request-id');
+  if (typeof header === 'string') {
+    const trimmed = header.trim();
+    // Keep it bounded; avoid log injection / huge payloads.
+    if (trimmed.length > 0 && trimmed.length <= 128) return trimmed;
+  }
+  return crypto.randomUUID();
+}
 
 const allowedOrigins = config.cors?.origins || [
   'http://localhost:3000',
@@ -29,10 +41,16 @@ const corsOptions = {
   },
   credentials: Boolean(config.cors?.credentials),
   methods: config.cors?.methods || ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Request-Id']
 };
 
 // Middleware
+app.use((req, res, next) => {
+  req.id = resolveRequestId(req);
+  res.setHeader('X-Request-Id', req.id);
+  next();
+});
+
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors(corsOptions));
 app.use(expressWinston.logger({
@@ -43,48 +61,17 @@ app.use(expressWinston.logger({
 }));
 app.use(express.json());
 
-// --- Ensure res.success / res.fail exist ---
-app.use((req, res, next) => {
-  res.success = (data, options = {}) => {
-    const { message = 'OK', status = 200 } = options;
-    res.status(status).json({ success: true, message, data });
-  };
-  res.fail = (message, options = {}) => {
-    const { status = 500, code = 'error', data = null } = options;
-    res.status(status).json({ success: false, code, message, data });
-  };
-  next();
-});
-
 app.use(responseFormatter);
 app.use(metricsMiddleware);
 
 app.use((err, req, res, next) => {
   if (err && err.message === 'Not allowed by CORS') {
-    return res.status(403).json({
-      success: false,
-      code: 'cors_not_allowed',
-      message: 'Origin not allowed'
-    });
+    return res.fail('Origin not allowed', { status: 403, code: 'cors_not_allowed' });
   }
   return next(err);
 });
 
 app.use('/uploads', express.static(UPLOADS_DIR));
-
-// Create uploads directory if it doesn't exist
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR);
-  logger.info({ uploadDir: UPLOADS_DIR }, 'Created uploads directory');
-}
-
-// MongoDB connection
-mongoose.connect(config.mongoUri)
-  .then(() => logger.info('Connected to MongoDB'))
-  .catch((err) => {
-    logger.error({ err }, 'MongoDB connection error');
-    process.exit(1);
-  });
 
 // Import routes
 function tryLoadRoute(relativePath) {
@@ -189,14 +176,41 @@ app.use(expressWinston.errorLogger({
 }));
 app.use(errorHandler);
 
-const server = app.listen(config.port, () => {
-  logger.info({ port: config.port }, 'Server is running');
-});
-
-server.on('error', (error) => {
-  if (error.code === 'EADDRINUSE') {
-    logger.error({ port: config.port }, 'Port already in use. Set PORT to a free port and restart.');
-    process.exit(1);
+async function start() {
+  // Create uploads directory if it doesn't exist
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    logger.info({ uploadDir: UPLOADS_DIR }, 'Created uploads directory');
   }
-  throw error;
-});
+
+  try {
+    await mongoose.connect(config.mongoUri);
+    logger.info('Connected to MongoDB');
+  } catch (err) {
+    logger.error({ err }, 'MongoDB connection error');
+    throw err;
+  }
+
+  const server = app.listen(config.port, () => {
+    logger.info({ port: config.port }, 'Server is running');
+  });
+
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      logger.error({ port: config.port }, 'Port already in use. Set PORT to a free port and restart.');
+      process.exit(1);
+    }
+    throw error;
+  });
+
+  return server;
+}
+
+if (require.main === module) {
+  start().catch((err) => {
+    logger.error({ err }, 'Failed to start server');
+    process.exit(1);
+  });
+}
+
+module.exports = { app, start };

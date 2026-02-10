@@ -80,14 +80,12 @@ export function unwrapResponse<T>(response: AxiosResponse<T>): UnwrappedResponse
 // 专用 API 函数（临时兼容）
 // ============================================================================
 
-const UploadResponseSchema = z.object({
-  uploadId: z.string(),
-  filename: z.string(),
-  size: z.number(),
-  mimeType: z.string().nullable().optional(),
-});
-
-export type UploadFileResponse = z.infer<typeof UploadResponseSchema>;
+export type UploadFileResponse = {
+  uploadId: string;
+  filename: string;
+  size: number;
+  mimeType?: string | null;
+};
 
 const ExtractionStatusSchema = z.object({
   status: z.enum(['queued', 'processing', 'done', 'error']),

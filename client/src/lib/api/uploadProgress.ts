@@ -141,12 +141,10 @@ export const uploadProgressApi = {
       }
 
       return data;
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
-        throw error;
-      }
-
-      throw new Error(error.message || '创建上传任务失败');
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string };
+      if (err?.name === 'ApiError') throw error;
+      throw new Error(err?.message || '创建上传任务失败');
     }
   },
 
@@ -190,12 +188,10 @@ export const uploadProgressApi = {
       }
 
       return data;
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
-        throw error;
-      }
-
-      throw new Error(error.message || '启动处理阶段失败');
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string };
+      if (err?.name === 'ApiError') throw error;
+      throw new Error(err?.message || '启动处理阶段失败');
     }
   },
 
@@ -228,12 +224,10 @@ export const uploadProgressApi = {
       }
 
       return data;
-    } catch (error: any) {
-      if (error.name === 'ApiError') {
-        throw error;
-      }
-
-      throw new Error(error.message || '完成上传任务失败');
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string };
+      if (err?.name === 'ApiError') throw error;
+      throw new Error(err?.message || '完成上传任务失败');
     }
   },
 
@@ -254,12 +248,10 @@ export const uploadProgressApi = {
       }
 
       return data;
-    } catch (err: any) {
-      if (err.name === 'ApiError') {
-        throw err;
-      }
-
-      throw new Error(err.message || '标记上传失败状态失败');
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string };
+      if (err?.name === 'ApiError') throw error;
+      throw new Error(err?.message || '标记上传失败状态失败');
     }
   },
 

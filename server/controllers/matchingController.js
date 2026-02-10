@@ -51,23 +51,27 @@ const matchingFacade = new TrialMatchingFacade({
 async function matchClinicalTrials(req, res, next) {
   try {
     const { recordId, record, filters } = matchRequestSchema.parse(req.body);
+    if (recordId && !mongoose.isValidObjectId(recordId)) {
+      throw new BadRequestError('Invalid medical record identifier');
+    }
     const normalizedFilters = normalizeMatchFilters(filters);
     const filtersHash = computeMatchFiltersHash(normalizedFilters);
 
-    let cacheKey = null;
+    let medicalRecord = null;
     if (recordId) {
+      medicalRecord = await MedicalRecord.findOne({ _id: recordId, userId: req.userId });
+      if (!medicalRecord && !record) {
+        throw new NotFoundError('Medical record not found');
+      }
+    }
+
+    let cacheKey = null;
+    // Only cache for persisted, owned records; avoids cache poisoning/leaks for adhoc matching.
+    if (recordId && medicalRecord) {
       cacheKey = `match:classic:${recordId}:${filtersHash}`;
       const cached = await cacheService.get(cacheKey);
       if (cached) {
         return res.success(cached, { message: 'Matching completed (cached)' });
-      }
-    }
-
-    let medicalRecord = null;
-    if (recordId) {
-      medicalRecord = await MedicalRecord.findById(recordId);
-      if (!medicalRecord && !record) {
-        throw new NotFoundError('Medical record not found');
       }
     }
 
@@ -166,12 +170,15 @@ async function matchClinicalTrials(req, res, next) {
 async function matchClinicalTrialsWithLLM(req, res, next) {
   try {
     const { recordId, record, filters } = matchRequestSchema.parse(req.body);
+    if (recordId && !mongoose.isValidObjectId(recordId)) {
+      throw new BadRequestError('Invalid medical record identifier');
+    }
     const normalizedFilters = normalizeMatchFilters(filters);
     const filtersHash = computeMatchFiltersHash(normalizedFilters);
 
     let medicalRecord = null;
     if (recordId) {
-      medicalRecord = await MedicalRecord.findById(recordId);
+      medicalRecord = await MedicalRecord.findOne({ _id: recordId, userId: req.userId });
     }
 
     const trials = await trialCache.loadNormalizedTrials();
@@ -266,7 +273,8 @@ async function matchClinicalTrialsWithLLM(req, res, next) {
     }
 
     let cacheKey = null;
-    if (recordId) {
+    // Only cache for persisted, owned records; avoids cache poisoning/leaks for adhoc matching.
+    if (recordId && medicalRecord) {
       cacheKey = `match:llm:${recordId}:${filtersHash}`;
       const cached = await cacheService.get(cacheKey);
       if (cached) {
@@ -542,7 +550,10 @@ async function matchAllClinicalTrials(req, res, next) {
 
     let medicalRecord = null;
     if (recordId) {
-      medicalRecord = await MedicalRecord.findById(recordId);
+      if (!mongoose.isValidObjectId(recordId)) {
+        throw new BadRequestError('Invalid medical record identifier');
+      }
+      medicalRecord = await MedicalRecord.findOne({ _id: recordId, userId: req.userId });
       if (!medicalRecord && !record) {
         throw new NotFoundError('Medical record not found');
       }

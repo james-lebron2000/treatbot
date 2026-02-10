@@ -22,9 +22,11 @@ const authenticateToken = (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Invalid or expired token', code: 'invalid_token' });
     }
 
+    const role = decoded && typeof decoded.role === 'string' ? decoded.role : 'user';
     req.userId = decoded.userId;
+    req.userRole = role;
     // expose the same shape newer controllers expect while keeping backwards compatibility
-    req.user = { userId: decoded.userId };
+    req.user = { userId: decoded.userId, role };
     next();
   });
 };

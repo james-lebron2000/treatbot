@@ -224,13 +224,13 @@ export default function LandingPage() {
                 附属肿瘤医院、上海市临床研究中心与国际制药企业共同维护试验库，确保信息准确与及时更新。我们以患者为中心，提供真实可行的治疗选择。
               </p>
             </div>
-            <Card className="mt-8 rounded-2xl border border-white/70 bg-white/80 p-6 text-sm shadow-md shadow-blue-100/50">
-              <p className="text-slate-500">
-                "通过AI辅助筛选，我们将优质临床试验真正带到患者身边，帮助他们更快、更安心地做出治疗决策。"
-              </p>
-            </Card>
-          </div>
-        </section>
+	            <Card className="mt-8 rounded-2xl border border-white/70 bg-white/80 p-6 text-sm shadow-md shadow-blue-100/50">
+	              <p className="text-slate-500">
+	                &ldquo;通过AI辅助筛选，我们将优质临床试验真正带到患者身边，帮助他们更快、更安心地做出治疗决策。&rdquo;
+	              </p>
+	            </Card>
+	          </div>
+	        </section>
 
         {/* CTA Section */}
         <section className="relative overflow-hidden rounded-3xl border border-sky-100/80 bg-white/80 p-6 shadow-2xl shadow-blue-100/50 sm:p-12">

@@ -516,9 +516,11 @@ uploadProgressService.on('upload:failed', ({ uploadId, error, task }) => {
 // =============================================================================
 
 // 每小时清理过期任务 / Clean up expired tasks every hour
-setInterval(() => {
-  uploadProgressService.cleanupExpiredTasks();
-}, 3600000);
+if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
+  setInterval(() => {
+    uploadProgressService.cleanupExpiredTasks();
+  }, 3600000);
+}
 
 // =============================================================================
 // 导出 / Exports

@@ -43,7 +43,8 @@ export default function RegisterPage() {
   }, [isAuthenticated, router]);
 
   const onSubmit = (data: RegisterFormData) => {
-    const { confirmPassword, ...registrationData } = data;
+    const { confirmPassword: _confirmPassword, ...registrationData } = data;
+    void _confirmPassword;
 
     registerUser(registrationData, {
       onSuccess: () => {

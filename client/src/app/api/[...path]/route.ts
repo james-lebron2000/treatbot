@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 
 // ==============================================================================
 // 🎯 API Proxy Route
@@ -48,9 +49,13 @@ function filterHopByHopHeaders(headers: Headers) {
 
 async function proxy(request: NextRequest, pathSegments: string[]) {
   const targetUrl = `${buildTargetUrl(pathSegments)}${request.nextUrl.search || ''}`;
+  const requestId = request.headers.get('x-request-id') || randomUUID();
 
   try {
     const headers = filterHopByHopHeaders(request.headers);
+    if (!headers.has('x-request-id')) {
+      headers.set('X-Request-Id', requestId);
+    }
 
     const init: RequestInit & { duplex?: 'half' } = {
       method: request.method,
@@ -66,6 +71,9 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
     const upstream = await fetch(targetUrl, init);
 
     const responseHeaders = filterHopByHopHeaders(upstream.headers);
+    if (!responseHeaders.has('x-request-id')) {
+      responseHeaders.set('X-Request-Id', requestId);
+    }
     return new NextResponse(upstream.body, {
       status: upstream.status,
       headers: responseHeaders
@@ -73,8 +81,8 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
   } catch (error) {
     console.error('API proxy error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
+      { success: false, message: 'Internal server error', traceId: requestId },
+      { status: 500, headers: { 'X-Request-Id': requestId } }
     );
   }
 }
@@ -104,7 +112,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   return proxy(request, path);
 }
 
-export async function OPTIONS(_request: NextRequest) {
+export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {

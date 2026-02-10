@@ -19,14 +19,13 @@ const { refreshPatientLatestData } = require('../utils/medicalHelpers');
 
 const { textParseSchema, fieldExtractionSchema } = require('./medicalSchemas');
 
-const llmService = defaultContainer.deps.llmService;
-
 function mergeStructuredRecords(base, updates) {
   return { ...base, ...updates };
 }
 
 async function parseMedicalText(req, res, next) {
   try {
+    const llmService = defaultContainer.deps.llmService;
     const payload = textParseSchema.parse(req.body);
     const {
       text,
@@ -428,12 +427,25 @@ async function extractFieldsWithLLM(req, res, next) {
 
 async function integrateMedicalRecord(req, res, next) {
   try {
+    const llmService = defaultContainer.deps.llmService;
     const { text, recordId } = req.body || {};
     if (!text) {
       throw new BadRequestError('没有提供文本内容');
     }
 
     logger.info({ userId: req.userId, hasRecordId: Boolean(recordId) }, '开始整合病历信息');
+
+    // If recordId is provided, validate ownership first to avoid leaking LLM calls/costs to attackers.
+    let ownedRecord = null;
+    if (recordId) {
+      if (!mongoose.isValidObjectId(recordId)) {
+        throw new BadRequestError('Invalid medical record identifier');
+      }
+      ownedRecord = await MedicalRecord.findOne({ _id: recordId, userId: req.userId });
+      if (!ownedRecord) {
+        throw new NotFoundError('Medical record not found');
+      }
+    }
 
     const integrationResult = await llmService.integrateMedicalRecord(text);
 
@@ -445,14 +457,8 @@ async function integrateMedicalRecord(req, res, next) {
     }
 
     let clinicalArchive = integrationResult.clinicalArchive || null;
-    if (recordId) {
-      if (!mongoose.isValidObjectId(recordId)) {
-        throw new BadRequestError('Invalid medical record identifier');
-      }
-      const record = await MedicalRecord.findById(recordId);
-      if (!record) {
-        throw new NotFoundError('Medical record not found');
-      }
+    if (ownedRecord) {
+      const record = ownedRecord;
 
       const existingArchive = record.clinicalArchive || createPatientArchive(record.patientId?.toString?.() || recordId);
       clinicalArchive = mergeArchives(existingArchive, integrationResult.clinicalArchive);

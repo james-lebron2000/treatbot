@@ -77,6 +77,7 @@ class EnhancedUploadService extends EventEmitter {
         uploadId,
         processId,
         patientId,
+        userId: options.userId ? String(options.userId) : null,
         file,
         startTime: Date.now(),
         stageStartTimes: new Map(),
@@ -179,12 +180,14 @@ class EnhancedUploadService extends EventEmitter {
     if (!this.config.enableProgressTracking) return;
 
     try {
+      const fileName = context.file?.originalname || context.file?.name || 'unknown';
+      const fileSize = context.file?.size || 0;
       // 创建上传进度任务
       await uploadProgressService.createUploadTask(
         context.uploadId,
         {
-          originalName: context.file.name,
-          size: context.file.size
+          originalName: fileName,
+          size: fileSize
         },
         context.userId
       );

@@ -7,6 +7,11 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true
   },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user'
+  },
   // Phone-based login (OTP). Optional for backward compatibility.
   phone: {
     type: String,

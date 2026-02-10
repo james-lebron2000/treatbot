@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, FileText, FlaskConical, LayoutDashboard, Target } from 'lucide-react';
+import { ArrowRight, FileText, Target } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { EnhancedStructuredRecord } from '@/components/medical/EnhancedStructuredRecord';

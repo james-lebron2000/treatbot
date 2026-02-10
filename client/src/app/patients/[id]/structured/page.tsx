@@ -300,7 +300,7 @@ export default function PatientStructuredPage({ params }: PatientStructuredPageP
         {/* Progress Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-center space-x-4">
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => router.push(`/patients/${patientRouteId}/ocr`)}>
+            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => router.push(`/patients/${patientRouteId}/extract`)}>
               <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold">
                 ✓
               </div>

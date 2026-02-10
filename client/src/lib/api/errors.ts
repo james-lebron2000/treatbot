@@ -106,43 +106,56 @@ export class ApiError extends Error {
  * - 不管是网络错误、超时、还是 HTTP 错误，都返回同一个 ApiError
  * - 调用方不需要判断错误类型，直接使用 ApiError 的语义化属性
  */
-export function fromAxiosError(error: any): ApiError {
-  // 防御性处理：确保error存在
-  if (!error) {
+export function fromAxiosError(error: unknown): ApiError {
+  const err = error as {
+    message?: string;
+    response?: {
+      status?: number;
+      data?: unknown;
+    };
+  } | null | undefined;
+
+  // 防御性处理：确保 error 存在
+  if (!err) {
     return new ApiError(0, 'Unknown error occurred', 'UNKNOWN_ERROR');
   }
 
   // 网络错误或请求未发出
-  if (!error.response) {
+  if (!err.response) {
     return new ApiError(
       0,
-      error.message || '网络连接失败，请检查网络设置',
+      err.message || '网络连接失败，请检查网络设置',
       'NETWORK_ERROR'
     );
   }
 
   // HTTP 错误响应
-  const { status, data } = error.response;
+  const status = typeof err.response.status === 'number' ? err.response.status : 0;
+  const data = err.response.data;
 
   // 更defensive的消息提取
   let message = '请求失败';
   if (data) {
     if (typeof data === 'string') {
       message = data;
-    } else if (data.message) {
-      message = data.message;
-    } else if (data.error) {
-      message = data.error;
+    } else if (typeof data === 'object') {
+      const obj = data as Record<string, unknown>;
+      if (typeof obj.message === 'string') {
+        message = obj.message;
+      } else if (typeof obj.error === 'string') {
+        message = obj.error;
+      }
     }
   }
 
   // 如果都没有，使用error.message
-  if (message === '请求失败' && error.message) {
-    message = error.message;
+  if (message === '请求失败' && err.message) {
+    message = err.message;
   }
 
-  const code = data?.code;
-  const details = data?.details || data?.errors;
+  const dataObj = data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
+  const code = dataObj && typeof dataObj.code === 'string' ? dataObj.code : undefined;
+  const details = dataObj ? (dataObj.details ?? dataObj.errors) : undefined;
 
   return new ApiError(status, message, code, details);
 }

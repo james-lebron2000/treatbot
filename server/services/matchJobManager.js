@@ -173,7 +173,7 @@ class MatchJobManager {
       });
 
       if (result.batch.hasMore && !runtime.cancelled) {
-        context.record = await MedicalRecord.findById(context.record._id);
+        context.record = await MedicalRecord.findOne({ _id: context.record._id, userId: context.userId });
         setTimeout(() => {
           this.processJob(jobId).catch((error) => {
             logger.error({ err: error, jobId }, 'Match job processing failed in continuation');

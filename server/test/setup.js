@@ -3,6 +3,13 @@
  * Configures test environment, MongoDB Memory Server, and mocks
  */
 
+// Ensure required env vars exist before requiring server modules.
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret';
+process.env.MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/clinicalmatch_test';
+process.env.STRICT_MODE = process.env.STRICT_MODE || 'false';
+process.env.REQUIRE_LLM = process.env.REQUIRE_LLM || 'false';
+process.env.LLM_PHI_MODE = process.env.LLM_PHI_MODE || 'full';
+
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const mongoose = require('mongoose');
 
@@ -16,12 +23,12 @@ beforeAll(async () => {
   mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
   
-  await mongoose.connect(mongoUri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  });
+  await mongoose.connect(mongoUri);
 
-  console.log('✓ MongoDB Memory Server started');
+  if (process.env.TEST_VERBOSE === 'true') {
+    // eslint-disable-next-line no-console
+    console.log('✓ MongoDB Memory Server started');
+  }
 });
 
 /**
@@ -30,7 +37,10 @@ beforeAll(async () => {
 afterAll(async () => {
   await mongoose.disconnect();
   await mongoServer.stop();
-  console.log('✓ MongoDB Memory Server stopped');
+  if (process.env.TEST_VERBOSE === 'true') {
+    // eslint-disable-next-line no-console
+    console.log('✓ MongoDB Memory Server stopped');
+  }
 });
 
 /**

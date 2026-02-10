@@ -103,8 +103,7 @@ const fileMetadataSchema = new mongoose.Schema({
   // 数据完整性
   checksum: {
     type: String,
-    required: true,
-    index: true
+    required: true
   },
 
   // 版本控制 - 核心设计
