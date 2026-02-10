@@ -9,7 +9,7 @@ import { useWorkflowStore } from '@/lib/stores/workflow';
 import { patientsApi } from '@/lib/api/patients';
 import { medicalApi, MatchStreamSubscription } from '@/lib/api/medical';
 import type { FieldPromptConfig, MatchFilters } from '@/lib/api/medical';
-import { extractErrorMessage } from '@/lib/utils';
+import { extractErrorMessage, extractTraceId } from '@/lib/utils';
 import { TrialCard } from '@/components/medical/TrialCard';
 import { MissingConfirmBanner } from '@/components/medical/MissingConfirmBanner';
 import { MatchDeltaBanner, type MatchDelta } from '@/components/medical/MatchDeltaBanner';
@@ -21,6 +21,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { StepNavigation } from '@/components/workflow/StepNavigation';
 import { showToast } from '@/components/ui/Toast';
+import { WorkflowEmptyState, WorkflowErrorState, WorkflowLoadingState } from '@/components/workflow/WorkflowFeedback';
 import {
   LegacyTrialMatch,
   MatchProviderMetadata,
@@ -136,9 +137,12 @@ interface ResultsStepProps {
 export default function ResultsStep({ params }: ResultsStepProps) {
   const [patientRouteId, setPatientRouteId] = useState('');
   const [paramsResolved, setParamsResolved] = useState(false);
+  const [isLoadingPatient, setIsLoadingPatient] = useState(false);
+  const [patientLoadError, setPatientLoadError] = useState<string | null>(null);
+  const [patientLoadTraceId, setPatientLoadTraceId] = useState<string | null>(null);
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
-  const { currentPatient } = usePatientStore();
+  const { currentPatient, setCurrentPatient } = usePatientStore();
   const {
     matchResults: workflowMatchResults,
     structuredRecord,
@@ -691,6 +695,31 @@ export default function ResultsStep({ params }: ResultsStepProps) {
     }
   }, [isAuthenticated, router]);
 
+  const loadPatient = useCallback(async () => {
+    if (!paramsResolved || !patientRouteId) return;
+    try {
+      setIsLoadingPatient(true);
+      setPatientLoadError(null);
+      setPatientLoadTraceId(null);
+      const patient = await patientsApi.getPatient(patientRouteId);
+      setCurrentPatient(patient);
+    } catch (error: unknown) {
+      const traceId = extractTraceId(error);
+      console.error('Error loading patient', { error, traceId });
+      const message = extractErrorMessage(error, '患者信息加载失败');
+      setPatientLoadError(message);
+      setPatientLoadTraceId(traceId);
+      showToast.error(message);
+    } finally {
+      setIsLoadingPatient(false);
+    }
+  }, [paramsResolved, patientRouteId, setCurrentPatient]);
+
+  useEffect(() => {
+    if (!paramsResolved || !patientRouteId) return;
+    void loadPatient();
+  }, [loadPatient, paramsResolved, patientRouteId]);
+
   useEffect(() => {
     if (currentRecord && currentRecord._id) {
       setCurrentRecordId(currentRecord._id.toString());
@@ -995,7 +1024,7 @@ export default function ResultsStep({ params }: ResultsStepProps) {
 
   // Load matching results
   useEffect(() => {
-    if (!paramsResolved || !patientRouteId || !currentPatient) {
+    if (!paramsResolved || !patientRouteId) {
       return;
     }
 
@@ -1307,11 +1336,49 @@ export default function ResultsStep({ params }: ResultsStepProps) {
     : null;
   const isStreaming = Boolean(activeJobId);
 
-  if (!isAuthenticated || !currentPatient) {
+  if (!isAuthenticated) {
+    return <WorkflowLoadingState title="正在跳转登录" message="需要登录后才能继续" />;
+  }
+
+  if (!paramsResolved) {
+    return <WorkflowLoadingState title="正在加载患者流程" message="请稍候..." />;
+  }
+
+  if (!patientRouteId) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
+      <WorkflowErrorState
+        title="患者标识无效"
+        message="未获取到患者 ID，请返回患者列表重试。"
+        backAction={{ label: '返回患者列表', href: '/patients' }}
+      />
+    );
+  }
+
+  if (patientLoadError) {
+    return (
+      <WorkflowErrorState
+        title="患者信息加载失败"
+        message={patientLoadError}
+        traceId={patientLoadTraceId}
+        retryAction={{ label: '重试', onClick: () => void loadPatient() }}
+        backAction={{ label: '返回患者列表', href: '/patients' }}
+      />
+    );
+  }
+
+  if (isLoadingPatient || !currentPatient) {
+    return <WorkflowLoadingState title="正在加载患者信息" message="请稍候..." />;
+  }
+
+  const hasAnyInput = Boolean(currentRecordId) || Boolean(structuredRecord) || Boolean(workflowMatchResults?.length) || Boolean(workflowExtractedText?.trim?.());
+  if (!hasAnyInput && !isLoading && !thinking.isThinking) {
+    return (
+      <WorkflowEmptyState
+        title="还没有匹配结果"
+        message="请先完成信息提取（Extract），再开始匹配临床试验。"
+        primaryAction={{ label: '去提取', href: `/patients/${patientRouteId}/extract` }}
+        secondaryAction={{ label: '去上传', href: `/patients/${patientRouteId}/upload` }}
+      />
     );
   }
 

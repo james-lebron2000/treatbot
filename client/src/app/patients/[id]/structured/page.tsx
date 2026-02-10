@@ -9,7 +9,7 @@ import { usePatientStore } from '@/lib/stores/patients';
 import { useWorkflowStore } from '@/lib/stores/workflow';
 import { patientsApi } from '@/lib/api/patients';
 import { medicalApi, LLMIntegrationResponse } from '@/lib/api/medical';
-import { extractErrorMessage } from '@/lib/utils';
+import { extractErrorMessage, extractTraceId } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { showToast } from '@/components/ui/Toast';
@@ -18,6 +18,7 @@ import { EnhancedStructuredRecord } from '@/components/medical/EnhancedStructure
 import { MedicalTimeline } from '@/components/medical/MedicalTimeline';
 import { Badge } from '@/components/ui/Badge';
 import { JsonValue, ClinicalArchive, MedicalRecord } from '@/types';
+import { WorkflowEmptyState, WorkflowErrorState, WorkflowLoadingState } from '@/components/workflow/WorkflowFeedback';
 
 // Dynamic import for ClinicalArchiveView
 const ClinicalArchiveView = dynamic(() => import('@/components/medical/ClinicalArchiveView').then(mod => ({ default: mod.ClinicalArchiveView })), {
@@ -71,9 +72,12 @@ const toStructuredRecord = (
 export default function PatientStructuredPage({ params }: PatientStructuredPageProps) {
   const [patientRouteId, setPatientRouteId] = useState('');
   const [paramsResolved, setParamsResolved] = useState(false);
+  const [isLoadingPatient, setIsLoadingPatient] = useState(false);
+  const [patientLoadError, setPatientLoadError] = useState<string | null>(null);
+  const [patientLoadTraceId, setPatientLoadTraceId] = useState<string | null>(null);
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
-  const { currentPatient } = usePatientStore();
+  const { currentPatient, setCurrentPatient } = usePatientStore();
   const { extractedText, structuredRecord: workflowStructuredRecord, setCurrentStep } = useWorkflowStore();
 
   // Structured data state
@@ -140,8 +144,11 @@ export default function PatientStructuredPage({ params }: PatientStructuredPageP
       }
 
       try {
-        await patientsApi.getPatient(patientRouteId);
-        // Note: setCurrentPatient would be called in parent component
+        setIsLoadingPatient(true);
+        setPatientLoadError(null);
+        setPatientLoadTraceId(null);
+        const patient = await patientsApi.getPatient(patientRouteId);
+        setCurrentPatient(patient);
 
         // Load patient records
         const patientRecords = await patientsApi.getPatientRecords(patientRouteId);
@@ -167,14 +174,19 @@ export default function PatientStructuredPage({ params }: PatientStructuredPageP
           }
         }
       } catch (error: unknown) {
-        console.error('Error loading patient data:', error);
+        const traceId = extractTraceId(error);
+        console.error('Error loading patient data', { error, traceId });
         const message = extractErrorMessage(error, '患者信息加载失败');
+        setPatientLoadError(message);
+        setPatientLoadTraceId(traceId);
         showToast.error(message);
+      } finally {
+        setIsLoadingPatient(false);
       }
     };
 
     loadPatientData();
-  }, [patientRouteId, paramsResolved]);
+  }, [patientRouteId, paramsResolved, setCurrentPatient]);
 
   const handleAIExtraction = async () => {
     if (!currentPatient) {
@@ -248,7 +260,8 @@ export default function PatientStructuredPage({ params }: PatientStructuredPageP
 
       showToast.success('结构化病历生成完成');
     } catch (error: unknown) {
-      console.error('AI extraction error:', error);
+      const traceId = extractTraceId(error);
+      console.error('AI extraction error', { error, traceId });
       const message = extractErrorMessage(error, '结构化处理失败');
       showToast.error(message);
     } finally {
@@ -265,11 +278,52 @@ export default function PatientStructuredPage({ params }: PatientStructuredPageP
     router.push(`/patients/${patientRouteId}/upload`);
   };
 
-  if (!isAuthenticated || !currentPatient) {
+  if (!isAuthenticated) {
+    return <WorkflowLoadingState title="正在跳转登录" message="需要登录后才能继续" />;
+  }
+
+  if (!paramsResolved) {
+    return <WorkflowLoadingState title="正在加载患者流程" message="请稍候..." />;
+  }
+
+  if (!patientRouteId) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
+      <WorkflowErrorState
+        title="患者标识无效"
+        message="未获取到患者 ID，请返回患者列表重试。"
+        backAction={{ label: '返回患者列表', href: '/patients' }}
+      />
+    );
+  }
+
+  if (patientLoadError) {
+    return (
+      <WorkflowErrorState
+        title="患者信息加载失败"
+        message={patientLoadError}
+        traceId={patientLoadTraceId}
+        retryAction={{ label: '重试', onClick: () => window.location.reload() }}
+        backAction={{ label: '返回患者列表', href: '/patients' }}
+      />
+    );
+  }
+
+  if (isLoadingPatient || !currentPatient) {
+    return <WorkflowLoadingState title="正在加载患者信息" message="请稍候..." />;
+  }
+
+  const hasAnyStructured =
+    (structuredRecord && Object.keys(structuredRecord).length > 0) ||
+    Boolean(llmIntegrationResult?.structuredData) ||
+    Boolean(clinicalArchive);
+  if (!hasAnyStructured && !isProcessing) {
+    return (
+      <WorkflowEmptyState
+        title="还没有结构化结果"
+        message="请先在提取步骤生成结构化病历，然后再查看结构化视图。"
+        primaryAction={{ label: '去提取', href: `/patients/${patientRouteId}/extract` }}
+        secondaryAction={{ label: '去上传', href: `/patients/${patientRouteId}/upload` }}
+      />
     );
   }
 

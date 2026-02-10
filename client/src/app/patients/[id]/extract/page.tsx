@@ -9,13 +9,14 @@ import { useWorkflowStore } from '@/lib/stores/workflow';
 import { useThinkingMode } from '@/hooks/useThinkingMode';
 import { patientsApi } from '@/lib/api/patients';
 import { medicalApi, FieldExtractionResponse, LLMIntegrationResponse } from '@/lib/api/medical';
-import { extractErrorMessage } from '@/lib/utils';
+import { extractErrorMessage, extractTraceId } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { StepNavigation } from '@/components/workflow/StepNavigation';
 import { showToast } from '@/components/ui/Toast';
 import { JsonValue, StructuredData, ClinicalArchive } from '@/types';
 import { getFieldLabel } from '@/lib/clinical/fieldLabels';
+import { WorkflowEmptyState, WorkflowErrorState, WorkflowLoadingState } from '@/components/workflow/WorkflowFeedback';
 
 type StructuredRecord = Record<string, JsonValue>;
 
@@ -119,9 +120,12 @@ interface ExtractStepProps {
 export default function ExtractStep({ params }: ExtractStepProps) {
   const [patientRouteId, setPatientRouteId] = useState('');
   const [paramsResolved, setParamsResolved] = useState(false);
+  const [isLoadingPatient, setIsLoadingPatient] = useState(false);
+  const [patientLoadError, setPatientLoadError] = useState<string | null>(null);
+  const [patientLoadTraceId, setPatientLoadTraceId] = useState<string | null>(null);
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
-  const { currentPatient } = usePatientStore();
+  const { currentPatient, setCurrentPatient } = usePatientStore();
   const {
     extractedText,
     structuredRecord,
@@ -210,7 +214,6 @@ export default function ExtractStep({ params }: ExtractStepProps) {
       const shouldAutoExtract = hasValidText && !step2Completed && !isAIExtracting && !thinking.isThinking;
       
       if (shouldAutoExtract) {
-        console.log('🤖 Auto-extraction triggered - valid text found, starting extraction...');
         setIsAutoExtracting(true);
         
         // Add a small delay to let the UI settle
@@ -228,14 +231,6 @@ export default function ExtractStep({ params }: ExtractStepProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extractedText, step2Completed, isAIExtracting, thinking.isThinking, paramsResolved, currentPatient, patientRouteId]);
 
-  // Debug: Monitor structuredRecord changes
-  useEffect(() => {
-    console.log('=== STRUCTURED RECORD STATE CHANGE ===');
-    console.log('structuredRecord updated:', structuredRecord);
-    console.log('structuredRecord keys:', structuredRecord ? Object.keys(structuredRecord) : 'N/A');
-    console.log('structuredRecord type:', typeof structuredRecord);
-  }, [structuredRecord]);
-
   // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
@@ -244,10 +239,36 @@ export default function ExtractStep({ params }: ExtractStepProps) {
     }
   }, [isAuthenticated, router]);
 
+  const loadPatient = async () => {
+    if (!paramsResolved || !patientRouteId) return;
+    try {
+      setIsLoadingPatient(true);
+      setPatientLoadError(null);
+      setPatientLoadTraceId(null);
+      const patient = await patientsApi.getPatient(patientRouteId);
+      setCurrentPatient(patient);
+    } catch (error: unknown) {
+      const traceId = extractTraceId(error);
+      console.error('Error loading patient', { error, traceId });
+      const message = extractErrorMessage(error, '患者信息加载失败');
+      setPatientLoadError(message);
+      setPatientLoadTraceId(traceId);
+      showToast.error(message);
+    } finally {
+      setIsLoadingPatient(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!paramsResolved || !patientRouteId) return;
+    void loadPatient();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsResolved, patientRouteId]);
+
   // Load patient records and existing data
   useEffect(() => {
     const loadPatientData = async () => {
-      if (!paramsResolved || !patientRouteId || !currentPatient) return;
+      if (!paramsResolved || !patientRouteId) return;
 
       try {
         // Load patient records
@@ -283,12 +304,13 @@ export default function ExtractStep({ params }: ExtractStepProps) {
           }
         }
       } catch (error: unknown) {
-        console.error('Error loading patient data:', error);
+        const traceId = extractTraceId(error);
+        console.error('Error loading patient data', { error, traceId });
       }
     };
 
     loadPatientData();
-  }, [patientRouteId, paramsResolved, currentPatient, setExtractedText, setStructuredRecord, structuredRecord, extractedText]);
+  }, [patientRouteId, paramsResolved, setExtractedText, setStructuredRecord, structuredRecord, extractedText]);
 
   // Load step1 data if available
   useEffect(() => {
@@ -300,7 +322,6 @@ export default function ExtractStep({ params }: ExtractStepProps) {
   const handleAIExtraction = async () => {
     // Double-click protection
     if (extractionInProgressRef.current || isAIExtracting || thinking.isThinking) {
-      console.log('Extraction already in progress, ignoring duplicate click');
       return;
     }
 
@@ -348,30 +369,15 @@ export default function ExtractStep({ params }: ExtractStepProps) {
         patientId: currentPatient?.id,
       });
 
-      // Update extraction result
-      console.log('=== AI EXTRACTION DEBUG ===');
-      console.log('Full extractResponse:', extractResponse);
-      console.log('extractResponse.structuredData:', extractResponse.structuredData);
-      console.log('extractResponse.clinicalArchive:', extractResponse.clinicalArchive);
-      console.log('extractResponse.record:', extractResponse.record);
-      
       setFieldExtractionResult(extractResponse);
       
       if (extractResponse.structuredData) {
-        console.log('Found structuredData, processing...');
         const structuredUpdate = toStructuredRecord(extractResponse.structuredData);
-        console.log('toStructuredRecord result:', structuredUpdate);
         
         if (structuredUpdate) {
-          console.log('Setting structuredRecord with:', structuredUpdate);
           // Update the workflow store with the new structured data
           setStructuredRecord(structuredUpdate);
-          console.log('structuredRecord should now be set');
-        } else {
-          console.warn('toStructuredRecord returned null/undefined');
         }
-      } else {
-        console.warn('No structuredData found in extractResponse');
       }
       if (extractResponse.clinicalArchive) {
         setClinicalArchive(extractResponse.clinicalArchive);
@@ -384,27 +390,18 @@ export default function ExtractStep({ params }: ExtractStepProps) {
       if (patientRouteId) {
         try {
           const updatedRecords = await patientsApi.getPatientRecords(patientRouteId);
-          console.log('Refreshed patient records:', updatedRecords.length, 'records found');
           
           if (updatedRecords.length > 0) {
             const latestRecord = updatedRecords[0];
-            console.log('Latest record data:', {
-              hasId: !!latestRecord._id,
-              hasClinicalArchive: !!latestRecord.clinicalArchive,
-              hasStructuredData: !!latestRecord.structuredData,
-              hasExtractedText: !!latestRecord.extractedText
-            });
             
             setExistingRecordId((prevId) => latestRecord._id || prevId || null);
             
             if (latestRecord.clinicalArchive) {
-              console.log('Setting clinicalArchive from refreshed record');
               setClinicalArchive(latestRecord.clinicalArchive);
             }
             
             // Also check if there's structured data in the record that we should use
             if (latestRecord.structuredData && !extractResponse.structuredData) {
-              console.log('Found structuredData in refreshed record, using it');
               const structuredUpdate = toStructuredRecord(latestRecord.structuredData);
               if (structuredUpdate) {
                 setStructuredRecord(structuredUpdate);
@@ -616,11 +613,51 @@ export default function ExtractStep({ params }: ExtractStepProps) {
     return false;
   };
 
-  if (!isAuthenticated || !currentPatient) {
+  if (!isAuthenticated) {
+    return <WorkflowLoadingState title="正在跳转登录" message="需要登录后才能继续" />;
+  }
+
+  if (!paramsResolved) {
+    return <WorkflowLoadingState title="正在加载患者流程" message="请稍候..." />;
+  }
+
+  if (!patientRouteId) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
+      <WorkflowErrorState
+        title="患者标识无效"
+        message="未获取到患者 ID，请返回患者列表重试。"
+        backAction={{ label: '返回患者列表', href: '/patients' }}
+      />
+    );
+  }
+
+  if (patientLoadError) {
+    return (
+      <WorkflowErrorState
+        title="患者信息加载失败"
+        message={patientLoadError}
+        traceId={patientLoadTraceId}
+        retryAction={{ label: '重试', onClick: () => void loadPatient() }}
+        backAction={{ label: '返回患者列表', href: '/patients' }}
+      />
+    );
+  }
+
+  if (isLoadingPatient || !currentPatient) {
+    return <WorkflowLoadingState title="正在加载患者信息" message="请稍候..." />;
+  }
+
+  const hasAnyText = typeof extractedText === 'string' && extractedText.trim().length > 0;
+  const hasAnyStructured = structuredRecord && typeof structuredRecord === 'object' && Object.keys(structuredRecord).length > 0;
+
+  if (!hasAnyText && !hasAnyStructured && !thinking.isThinking && !isAIExtracting) {
+    return (
+      <WorkflowEmptyState
+        title="还没有可提取的病历内容"
+        message="请先在上传步骤上传文件或粘贴病历文本，然后再进行结构化提取。"
+        primaryAction={{ label: '去上传', href: `/patients/${patientRouteId}/upload` }}
+        secondaryAction={{ label: '返回患者列表', href: '/patients' }}
+      />
     );
   }
 

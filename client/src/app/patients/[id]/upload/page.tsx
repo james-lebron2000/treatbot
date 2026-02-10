@@ -21,17 +21,17 @@ import { useUploadProgressStore, generateUploadId, type UploadTask } from '@/lib
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { medicalApi } from '@/lib/api/medical';
 import { uploadProgressApi } from '@/lib/api/uploadProgress';
-import { extractErrorMessage } from '@/lib/utils';
+import { cn, extractErrorMessage, extractTraceId } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { GlobalUploadProgress } from '@/components/ui/UploadProgress';
 import { showToast } from '@/components/ui/Toast';
 import { SlidePageTransition } from '@/components/layout/PageTransition';
-import { cn } from '@/lib/utils';
 import { ProcessingTimeline } from '@/components/upload/ProcessingTimeline';
 import { MedicalRecord, type JsonValue } from '@/types';
 import { StepNavigation } from '@/components/workflow/StepNavigation';
+import { WorkflowErrorState, WorkflowLoadingState } from '@/components/workflow/WorkflowFeedback';
 
 const TEST_MEDICAL_RECORD_TEXT = `姓名： 测试患者  性别： 男  年龄： 53岁
 日期： 2024-05-31  科别： 肿瘤内科门诊
@@ -78,6 +78,9 @@ const formatTimestamp = (value?: string | number | Date | null): string => {
 export default function UploadStep({ params }: { params?: Promise<{ id?: string }> }) {
   const [patientRouteId, setPatientRouteId] = useState('');
   const [paramsResolved, setParamsResolved] = useState(false);
+  const [isLoadingPatient, setIsLoadingPatient] = useState(false);
+  const [patientLoadError, setPatientLoadError] = useState<string | null>(null);
+  const [patientLoadTraceId, setPatientLoadTraceId] = useState<string | null>(null);
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
   const { currentPatient, setCurrentPatient } = usePatientStore();
@@ -181,30 +184,34 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
     }
   }, [isAuthenticated, router]);
 
+  const loadPatient = useCallback(async () => {
+    if (!paramsResolved) return;
+    if (!patientRouteId) return;
+
+    try {
+      setIsLoadingPatient(true);
+      setPatientLoadError(null);
+      setPatientLoadTraceId(null);
+      const patient = await patientsApi.getPatient(patientRouteId);
+      setCurrentPatient(patient);
+    } catch (error: unknown) {
+      const traceId = extractTraceId(error);
+      console.error('Error loading patient', { error, traceId });
+      const message = extractErrorMessage(error, '患者信息加载失败');
+      setPatientLoadError(message);
+      setPatientLoadTraceId(traceId);
+      showToast.error(message);
+    } finally {
+      setIsLoadingPatient(false);
+    }
+  }, [paramsResolved, patientRouteId, setCurrentPatient]);
+
   // Load patient data
   useEffect(() => {
-    const loadPatient = async () => {
-      if (!paramsResolved) return;
-
-      if (!patientRouteId) {
-        showToast.error('患者标识无效');
-        router.push('/');
-        return;
-      }
-
-      try {
-        const patient = await patientsApi.getPatient(patientRouteId);
-        setCurrentPatient(patient);
-      } catch (error: unknown) {
-        console.error('Error loading patient:', error);
-        const message = extractErrorMessage(error, '患者信息加载失败');
-        showToast.error(message);
-        router.push('/');
-      }
-    };
-
-    loadPatient();
-  }, [patientRouteId, paramsResolved, router, setCurrentPatient]);
+    if (!paramsResolved) return;
+    if (!patientRouteId) return;
+    void loadPatient();
+  }, [loadPatient, paramsResolved, patientRouteId]);
 
   const refreshPatientRecords = useCallback(async () => {
     if (!patientRouteId) return;
@@ -565,11 +572,39 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
     [stageReady]
   );
 
-  if (!isAuthenticated || !currentPatient) {
+  if (!isAuthenticated) {
+    return <WorkflowLoadingState title="正在跳转登录" message="需要登录后才能继续" />;
+  }
+
+  if (!paramsResolved) {
+    return <WorkflowLoadingState title="正在加载患者信息" message="请稍候..." />;
+  }
+
+  if (!patientRouteId) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
+      <WorkflowErrorState
+        title="患者标识无效"
+        message="未获取到患者 ID，请返回患者列表重试。"
+        backAction={{ label: '返回患者列表', href: '/patients' }}
+      />
+    );
+  }
+
+  if (patientLoadError) {
+    return (
+      <WorkflowErrorState
+        title="患者信息加载失败"
+        message={patientLoadError}
+        traceId={patientLoadTraceId}
+        retryAction={{ label: '重试', onClick: () => void loadPatient() }}
+        backAction={{ label: '返回患者列表', href: '/patients' }}
+      />
+    );
+  }
+
+  if (isLoadingPatient || !currentPatient) {
+    return (
+      <WorkflowLoadingState title="正在加载患者信息" message="请稍候..." />
     );
   }
 
