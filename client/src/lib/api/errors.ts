@@ -20,7 +20,8 @@ export class ApiError extends Error {
     public status: number,          // HTTP 状态码 (0 表示网络错误)
     message: string,                // 人类可读的错误信息
     public code?: string,           // 业务错误码 (如 'INVALID_TOKEN')
-    public details?: unknown        // 额外的错误详情 (验证错误等)
+    public details?: unknown,       // 额外的错误详情 (验证错误等)
+    public traceId?: string         // 服务端 traceId（用于线上定位）
   ) {
     super(message);
     this.name = 'ApiError';
@@ -82,6 +83,7 @@ export class ApiError extends Error {
       status: this.status,
       code: this.code,
       details: this.details,
+      traceId: this.traceId,
     };
   }
 
@@ -112,6 +114,7 @@ export function fromAxiosError(error: unknown): ApiError {
     response?: {
       status?: number;
       data?: unknown;
+      headers?: Record<string, unknown>;
     };
   } | null | undefined;
 
@@ -156,6 +159,11 @@ export function fromAxiosError(error: unknown): ApiError {
   const dataObj = data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
   const code = dataObj && typeof dataObj.code === 'string' ? dataObj.code : undefined;
   const details = dataObj ? (dataObj.details ?? dataObj.errors) : undefined;
+  const traceIdFromBody = dataObj && typeof dataObj.traceId === 'string' ? dataObj.traceId : undefined;
+  const headers = err.response && typeof err.response.headers === 'object' && err.response.headers ? err.response.headers : null;
+  const traceIdFromHeader =
+    headers && typeof headers['x-request-id'] === 'string' ? (headers['x-request-id'] as string) : undefined;
+  const traceId = traceIdFromBody || traceIdFromHeader;
 
-  return new ApiError(status, message, code, details);
+  return new ApiError(status, message, code, details, traceId);
 }

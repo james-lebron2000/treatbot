@@ -153,9 +153,14 @@ apiClient.interceptors.response.use(
   (error) => {
     // 开发环境：打印错误日志
     if (IS_DEV) {
+      const traceId =
+        (error?.response?.data && typeof error.response.data === 'object' && error.response.data?.traceId)
+          ? error.response.data.traceId
+          : error?.response?.headers?.['x-request-id'];
       console.error(`[API] ✗ ${error.config?.url}`, {
         status: error.response?.status,
         message: error.response?.data?.message || error.message,
+        traceId,
       });
     }
 
