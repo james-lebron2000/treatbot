@@ -650,8 +650,9 @@ export default function ResultsStep({ params }: ResultsStepProps) {
         setLocalMatchResults(status.matches);
         setMatchResults(status.matches);
       }
-    } catch (error) {
-      console.error('Failed to load match status:', error);
+    } catch (error: unknown) {
+      const traceId = extractTraceId(error);
+      console.error('Failed to load match status', { error, traceId });
     }
   }, [deriveBatchDetails, setMatchProvider, setMatchResults, updateProgressFromMetadata]);
 
@@ -910,7 +911,8 @@ export default function ResultsStep({ params }: ResultsStepProps) {
         stopThinking();
       }
     } catch (error: unknown) {
-      console.error('Trial batch matching error:', error);
+      const traceId = extractTraceId(error);
+      console.error('Trial batch matching error', { error, traceId });
       const message = extractErrorMessage(error, '批次匹配失败');
       setError(message);
       showToast.error(message);
@@ -972,7 +974,8 @@ export default function ResultsStep({ params }: ResultsStepProps) {
         loadMatchHistory(currentRecordId, { reset: true });
       }
     } catch (error: unknown) {
-      console.error('Structured data matching error:', error);
+      const traceId = extractTraceId(error);
+      console.error('Structured data matching error', { error, traceId });
       const message = extractErrorMessage(error, '结构化数据匹配失败');
       setError(message);
       showToast.error(message);
@@ -1126,7 +1129,8 @@ export default function ResultsStep({ params }: ResultsStepProps) {
         setHistoryDiff({ added: [], removed: [] });
         setCurrentRecordId(null);
       } catch (error: unknown) {
-        console.error('Error loading match results:', error);
+        const traceId = extractTraceId(error);
+        console.error('Error loading match results', { error, traceId });
         const message = extractErrorMessage(error, '匹配结果加载失败');
         showToast.error(message);
         if (isMounted) {
@@ -1205,7 +1209,8 @@ export default function ResultsStep({ params }: ResultsStepProps) {
       }
       showToast.success('匹配结果已刷新');
     } catch (error: unknown) {
-      console.error('Refresh error:', error);
+      const traceId = extractTraceId(error);
+      console.error('Refresh error', { error, traceId });
       showToast.error('刷新失败，请稍后重试');
     } finally {
       setIsLoading(false);

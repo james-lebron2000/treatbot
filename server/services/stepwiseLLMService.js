@@ -518,11 +518,17 @@ class StepwiseLLMService {
   /**
    * 获取提取任务状态
    * @param {string} jobId - 任务ID
+   * @param {string} userId - 当前用户ID（用于所有权校验）
    * @returns {Object} 任务状态信息
    */
-  async getExtractionStatus(jobId) {
+  async getExtractionStatus(jobId, userId = null) {
     const jobInfo = await this.loadJob(jobId);
     if (!jobInfo) {
+      return { error: '任务不存在' };
+    }
+
+    if (!jobInfo.userId || (userId && String(jobInfo.userId) !== String(userId))) {
+      // Security: hide existence of jobs that are not owned by requester.
       return { error: '任务不存在' };
     }
 
@@ -773,10 +779,15 @@ class StepwiseLLMService {
   /**
    * 获取完整的结构化提取结果
    * @param {string} jobId - 任务ID
+   * @param {string} userId - 当前用户ID（用于所有权校验）
    * @returns {Object} 整合后的结构化数据
    */
-  async getStructuredResult(jobId) {
+  async getStructuredResult(jobId, userId = null) {
     const jobInfo = await this.loadJob(jobId);
+    if (!jobInfo) return null;
+    if (!jobInfo.userId || (userId && String(jobInfo.userId) !== String(userId))) {
+      return null;
+    }
     if (!jobInfo || (jobInfo.status !== 'completed' && jobInfo.status !== 'completed_with_warnings')) {
       return null;
     }

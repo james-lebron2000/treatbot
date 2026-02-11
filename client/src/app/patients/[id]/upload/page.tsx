@@ -220,8 +220,9 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
       setIsLoadingRecords(true);
       const records = await patientsApi.getPatientRecords(patientRouteId);
       setRecentRecords(records.slice(0, 5));
-    } catch (error) {
-      console.warn('Failed to load patient records for upload overview', error);
+    } catch (error: unknown) {
+      const traceId = extractTraceId(error);
+      console.warn('Failed to load patient records for upload overview', { error, traceId });
     } finally {
       setIsLoadingRecords(false);
     }
@@ -380,8 +381,9 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
       });
 
       showToast.success(`文件 "${file.name}" 处理完成`);
-    } catch (error) {
-      console.error('OCR processing failed:', error);
+    } catch (error: unknown) {
+      const traceId = extractTraceId(error);
+      console.error('OCR processing failed', { error, traceId });
       const errorMessage = extractErrorMessage(error, '文字识别失败');
 
       failUpload(errorMessage);
@@ -435,8 +437,9 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
       // 处理OCR结果 / Process OCR result
       await processOCRResult(file, uploadId);
 
-    } catch (error) {
-      console.error('File upload failed:', error);
+    } catch (error: unknown) {
+      const traceId = extractTraceId(error);
+      console.error('File upload failed', { error, traceId });
       const errorMessage = extractErrorMessage(error, '文件上传失败');
 
       failUpload(errorMessage);
@@ -450,8 +453,8 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
 
   // 上传完成处理 / Upload Completion Handling
 
-  const handleUploadComplete = useCallback(async (completedTask: UploadTask) => {
-    console.log('Upload completed:', completedTask);
+  const handleUploadComplete = useCallback(async (_completedTask: UploadTask) => {
+    void _completedTask;
 
     // 清理当前上传ID / Clean up current upload ID
     setCurrentUploadId(null);
@@ -463,7 +466,7 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
   }, [refreshPatientRecords]);
 
   const handleUploadError = useCallback((error: string) => {
-    console.error('Upload error:', error);
+    console.error('Upload error', { error });
 
     setCurrentUploadId(null);
     setIsProcessing(false);
@@ -633,9 +636,7 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
             <div className="mb-8">
               <GlobalUploadProgress
                 maxVisible={3}
-                onAllComplete={() => {
-                  console.log('All uploads completed');
-                }}
+                onAllComplete={() => undefined}
               />
             </div>
           )}
@@ -716,8 +717,6 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
                       <UploadProgress
                         taskId={currentUploadId}
                         className="w-full"
-                        onComplete={() => console.log('Upload completed')}
-                        onError={(error) => console.error('Upload error:', error)}
                       />
                     </div>
                   )}

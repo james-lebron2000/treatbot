@@ -408,8 +408,9 @@ export default function ExtractStep({ params }: ExtractStepProps) {
               }
             }
           }
-        } catch (refreshError) {
-          console.warn('Failed to refresh patient records after AI extraction', refreshError);
+        } catch (refreshError: unknown) {
+          const traceId = extractTraceId(refreshError);
+          console.warn('Failed to refresh patient records after AI extraction', { error: refreshError, traceId });
         }
       }
 
@@ -431,7 +432,8 @@ export default function ExtractStep({ params }: ExtractStepProps) {
       setStepCompleted(2, true);
 
     } catch (error: unknown) {
-      console.error('AI智能提取失败:', error);
+      const traceId = extractTraceId(error);
+      console.error('AI智能提取失败', { error, traceId });
       thinking.setError('提取失败，请重试');
       const message = extractErrorMessage(error, 'AI智能提取失败');
       showToast.error(message);
@@ -444,27 +446,11 @@ export default function ExtractStep({ params }: ExtractStepProps) {
 
   // Handle trial matching - separate function to fix async/await scope issue
   const handleMatchTrials = async () => {
-    // Debug: Check what data we have available
-    console.log('=== MATCH TRIALS DEBUG ===');
-    console.log('existingRecordId:', existingRecordId);
-    console.log('structuredRecord:', structuredRecord);
-    console.log('structuredRecord type:', typeof structuredRecord);
-    console.log('structuredRecord keys:', structuredRecord ? Object.keys(structuredRecord) : 'N/A');
-    console.log('clinicalArchive:', clinicalArchive);
-    console.log('fieldExtractionResult:', fieldExtractionResult);
-
     // More intelligent validation - check multiple sources of medical data
     const hasStructuredRecord = structuredRecord && Object.keys(structuredRecord).length > 0;
     const hasClinicalArchive = clinicalArchive != null;
     const hasRecordId = existingRecordId != null;
     const hasExtractionResult = fieldExtractionResult != null;
-    
-    console.log('Validation checks:', {
-      hasStructuredRecord,
-      hasClinicalArchive,
-      hasRecordId,
-      hasExtractionResult
-    });
 
     // Allow matching if we have ANY form of extracted medical data
     const hasValidMedicalData = hasStructuredRecord || hasClinicalArchive || hasRecordId || hasExtractionResult;
@@ -487,31 +473,22 @@ export default function ExtractStep({ params }: ExtractStepProps) {
       
       if (existingRecordId) {
         requestData.recordId = existingRecordId;
-        console.log('Using recordId from existing record');
       }
       
       if (hasStructuredRecord) {
         requestData.record = structuredRecord as StructuredRecord | ClinicalArchive;
-        console.log('Using structuredRecord for matching');
       } else if (hasClinicalArchive) {
         // Fallback: convert clinicalArchive to structured format if needed
-        console.log('Using clinicalArchive as fallback');
         requestData.record = clinicalArchive;
       } else if (hasExtractionResult && fieldExtractionResult.structuredData) {
         // Another fallback: use the extraction result directly
-        console.log('Using fieldExtractionResult.structuredData as fallback');
         requestData.record = fieldExtractionResult.structuredData;
       }
-
-      console.log('Sending match request with data:', requestData);
-      console.log('Request data keys:', Object.keys(requestData));
 
       thinking.setMatchingProgress(0, thinking.totalItems ?? 100);
 
       if (!requestData.recordId) {
         // Use fallback mechanism - match with structured data directly
-        console.log('No recordId available, using fallback matching with structured data');
-
         // Ensure we only use StructuredRecord, filter out ClinicalArchive
         let fallbackRecord: StructuredData | Record<string, JsonValue> | undefined;
 
@@ -583,7 +560,8 @@ export default function ExtractStep({ params }: ExtractStepProps) {
       }, 1500);
 
     } catch (error: unknown) {
-      console.error('Trial matching error:', error);
+      const traceId = extractTraceId(error);
+      console.error('Trial matching error', { error, traceId });
       const message = extractErrorMessage(error, '匹配失败');
       thinking.setError(message);
       showToast.error(message);

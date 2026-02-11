@@ -74,7 +74,7 @@ async function getExtractionStatus(req, res) {
   }
 
   try {
-    const status = await stepwiseLLMService.getExtractionStatus(jobId);
+    const status = await stepwiseLLMService.getExtractionStatus(jobId, req.user.userId);
 
     if (status.error) {
       throw new NotFoundError('提取任务不存在');
@@ -104,10 +104,10 @@ async function getExtractionResult(req, res) {
   }
 
   try {
-    const result = await stepwiseLLMService.getStructuredResult(jobId);
+    const result = await stepwiseLLMService.getStructuredResult(jobId, req.user.userId);
 
     if (!result) {
-      const status = await stepwiseLLMService.getExtractionStatus(jobId);
+      const status = await stepwiseLLMService.getExtractionStatus(jobId, req.user.userId);
       if (status.error) {
         throw new NotFoundError('提取任务不存在');
       } else if (status.status !== 'completed') {
@@ -143,4 +143,3 @@ module.exports = {
   getExtractionStatus,
   getExtractionResult
 };
-
