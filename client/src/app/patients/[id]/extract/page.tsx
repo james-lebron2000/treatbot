@@ -9,8 +9,7 @@ import { useWorkflowStore } from '@/lib/stores/workflow';
 import { useThinkingMode } from '@/hooks/useThinkingMode';
 import { patientsApi } from '@/lib/api/patients';
 import { medicalApi, FieldExtractionResponse, LLMIntegrationResponse } from '@/lib/api/medical';
-import { extractErrorMessage } from '@/lib/utils';
-import { logClientError, logClientWarn } from '@/lib/logging';
+import { logClientError, logClientErrorWithMessage, logClientWarn } from '@/lib/logging';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { StepNavigation } from '@/components/workflow/StepNavigation';
@@ -249,8 +248,12 @@ export default function ExtractStep({ params }: ExtractStepProps) {
       const patient = await patientsApi.getPatient(patientRouteId);
       setCurrentPatient(patient);
     } catch (error: unknown) {
-      const traceId = logClientError('extract.loadPatient', error, { patientRouteId });
-      const message = extractErrorMessage(error, '患者信息加载失败');
+      const { traceId, message } = logClientErrorWithMessage(
+        'extract.loadPatient',
+        error,
+        '患者信息加载失败',
+        { patientRouteId }
+      );
       setPatientLoadError(message);
       setPatientLoadTraceId(traceId);
       showToast.error(message);
@@ -430,9 +433,11 @@ export default function ExtractStep({ params }: ExtractStepProps) {
       setStepCompleted(2, true);
 
     } catch (error: unknown) {
-      logClientError('extract.handleAIExtraction', error, { patientRouteId, existingRecordId });
+      const { message } = logClientErrorWithMessage('extract.handleAIExtraction', error, 'AI智能提取失败', {
+        patientRouteId,
+        existingRecordId
+      });
       thinking.setError('提取失败，请重试');
-      const message = extractErrorMessage(error, 'AI智能提取失败');
       showToast.error(message);
     } finally {
       setIsAIExtracting(false);
@@ -557,8 +562,10 @@ export default function ExtractStep({ params }: ExtractStepProps) {
       }, 1500);
 
     } catch (error: unknown) {
-      logClientError('extract.handleMatchTrials', error, { patientRouteId, existingRecordId });
-      const message = extractErrorMessage(error, '匹配失败');
+      const { message } = logClientErrorWithMessage('extract.handleMatchTrials', error, '匹配失败', {
+        patientRouteId,
+        existingRecordId
+      });
       thinking.setError(message);
       showToast.error(message);
     } finally {

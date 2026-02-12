@@ -1,6 +1,11 @@
-import { extractTraceId } from '@/lib/utils';
+import { extractErrorMessage, extractTraceId } from '@/lib/utils';
 
 type LogMeta = Record<string, unknown> | undefined;
+
+type LoggedError = {
+  traceId: string | null;
+  message: string;
+};
 
 export function logClientError(scope: string, error: unknown, meta?: LogMeta): string | null {
   const traceId = extractTraceId(error);
@@ -22,3 +27,13 @@ export function logClientWarn(scope: string, errorOrMessage: unknown, meta?: Log
   return traceId;
 }
 
+export function logClientErrorWithMessage(
+  scope: string,
+  error: unknown,
+  fallbackMessage: string,
+  meta?: LogMeta
+): LoggedError {
+  const traceId = logClientError(scope, error, meta);
+  const message = extractErrorMessage(error, fallbackMessage);
+  return { traceId, message };
+}

@@ -9,8 +9,7 @@ import { usePatientStore } from '@/lib/stores/patients';
 import { useWorkflowStore } from '@/lib/stores/workflow';
 import { patientsApi } from '@/lib/api/patients';
 import { medicalApi, LLMIntegrationResponse } from '@/lib/api/medical';
-import { extractErrorMessage } from '@/lib/utils';
-import { logClientError } from '@/lib/logging';
+import { logClientErrorWithMessage } from '@/lib/logging';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { showToast } from '@/components/ui/Toast';
@@ -175,8 +174,12 @@ export default function PatientStructuredPage({ params }: PatientStructuredPageP
           }
         }
       } catch (error: unknown) {
-        const traceId = logClientError('structured.loadPatientData', error, { patientRouteId });
-        const message = extractErrorMessage(error, '患者信息加载失败');
+        const { traceId, message } = logClientErrorWithMessage(
+          'structured.loadPatientData',
+          error,
+          '患者信息加载失败',
+          { patientRouteId }
+        );
         setPatientLoadError(message);
         setPatientLoadTraceId(traceId);
         showToast.error(message);
@@ -260,11 +263,10 @@ export default function PatientStructuredPage({ params }: PatientStructuredPageP
 
       showToast.success('结构化病历生成完成');
     } catch (error: unknown) {
-      const traceId = logClientError('structured.handleAIExtraction', error, {
+      const { message } = logClientErrorWithMessage('structured.handleAIExtraction', error, '结构化处理失败', {
         patientRouteId,
       });
-      const message = extractErrorMessage(error, '结构化处理失败');
-      showToast.error(traceId ? `${message}（追踪ID: ${traceId}）` : message);
+      showToast.error(message);
     } finally {
       setIsProcessing(false);
     }

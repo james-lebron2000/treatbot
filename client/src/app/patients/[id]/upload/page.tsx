@@ -21,8 +21,8 @@ import { useUploadProgressStore, generateUploadId, type UploadTask } from '@/lib
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { medicalApi } from '@/lib/api/medical';
 import { uploadProgressApi } from '@/lib/api/uploadProgress';
-import { cn, extractErrorMessage } from '@/lib/utils';
-import { logClientError, logClientWarn } from '@/lib/logging';
+import { cn } from '@/lib/utils';
+import { logClientError, logClientErrorWithMessage, logClientWarn } from '@/lib/logging';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { UploadProgress } from '@/components/ui/UploadProgress';
@@ -196,8 +196,12 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
       const patient = await patientsApi.getPatient(patientRouteId);
       setCurrentPatient(patient);
     } catch (error: unknown) {
-      const traceId = logClientError('upload.loadPatient', error, { patientRouteId });
-      const message = extractErrorMessage(error, '患者信息加载失败');
+      const { traceId, message } = logClientErrorWithMessage(
+        'upload.loadPatient',
+        error,
+        '患者信息加载失败',
+        { patientRouteId }
+      );
       setPatientLoadError(message);
       setPatientLoadTraceId(traceId);
       showToast.error(message);
@@ -381,11 +385,10 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
 
       showToast.success(`文件 "${file.name}" 处理完成`);
     } catch (error: unknown) {
-      logClientError('upload.processOCRResult', error, {
+      const { message: errorMessage } = logClientErrorWithMessage('upload.processOCRResult', error, '文字识别失败', {
         fileName: file.name,
         uploadId
       });
-      const errorMessage = extractErrorMessage(error, '文字识别失败');
 
       failUpload(errorMessage);
       setFileQueue(prev => prev.map(item =>
@@ -439,11 +442,10 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
       await processOCRResult(file, uploadId);
 
     } catch (error: unknown) {
-      logClientError('upload.processFileUpload', error, {
+      const { message: errorMessage } = logClientErrorWithMessage('upload.processFileUpload', error, '文件上传失败', {
         fileName: file.name,
         uploadId
       });
-      const errorMessage = extractErrorMessage(error, '文件上传失败');
 
       failUpload(errorMessage);
       setFileQueue(prev => prev.map(item =>
