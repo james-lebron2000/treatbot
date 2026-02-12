@@ -9,7 +9,8 @@ import { useWorkflowStore } from '@/lib/stores/workflow';
 import { useThinkingMode } from '@/hooks/useThinkingMode';
 import { patientsApi } from '@/lib/api/patients';
 import { medicalApi, FieldExtractionResponse, LLMIntegrationResponse } from '@/lib/api/medical';
-import { extractErrorMessage, extractTraceId } from '@/lib/utils';
+import { extractErrorMessage } from '@/lib/utils';
+import { logClientError, logClientWarn } from '@/lib/logging';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { StepNavigation } from '@/components/workflow/StepNavigation';
@@ -248,8 +249,7 @@ export default function ExtractStep({ params }: ExtractStepProps) {
       const patient = await patientsApi.getPatient(patientRouteId);
       setCurrentPatient(patient);
     } catch (error: unknown) {
-      const traceId = extractTraceId(error);
-      console.error('Error loading patient', { error, traceId });
+      const traceId = logClientError('extract.loadPatient', error, { patientRouteId });
       const message = extractErrorMessage(error, '患者信息加载失败');
       setPatientLoadError(message);
       setPatientLoadTraceId(traceId);
@@ -304,8 +304,7 @@ export default function ExtractStep({ params }: ExtractStepProps) {
           }
         }
       } catch (error: unknown) {
-        const traceId = extractTraceId(error);
-        console.error('Error loading patient data', { error, traceId });
+        logClientError('extract.loadPatientData', error, { patientRouteId });
       }
     };
 
@@ -409,8 +408,7 @@ export default function ExtractStep({ params }: ExtractStepProps) {
             }
           }
         } catch (refreshError: unknown) {
-          const traceId = extractTraceId(refreshError);
-          console.warn('Failed to refresh patient records after AI extraction', { error: refreshError, traceId });
+          logClientWarn('extract.refreshPatientRecordsAfterAI', refreshError, { patientRouteId });
         }
       }
 
@@ -432,8 +430,7 @@ export default function ExtractStep({ params }: ExtractStepProps) {
       setStepCompleted(2, true);
 
     } catch (error: unknown) {
-      const traceId = extractTraceId(error);
-      console.error('AI智能提取失败', { error, traceId });
+      logClientError('extract.handleAIExtraction', error, { patientRouteId, existingRecordId });
       thinking.setError('提取失败，请重试');
       const message = extractErrorMessage(error, 'AI智能提取失败');
       showToast.error(message);
@@ -560,8 +557,7 @@ export default function ExtractStep({ params }: ExtractStepProps) {
       }, 1500);
 
     } catch (error: unknown) {
-      const traceId = extractTraceId(error);
-      console.error('Trial matching error', { error, traceId });
+      logClientError('extract.handleMatchTrials', error, { patientRouteId, existingRecordId });
       const message = extractErrorMessage(error, '匹配失败');
       thinking.setError(message);
       showToast.error(message);

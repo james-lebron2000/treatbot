@@ -9,7 +9,8 @@ import { useWorkflowStore } from '@/lib/stores/workflow';
 import { patientsApi } from '@/lib/api/patients';
 import { medicalApi, MatchStreamSubscription } from '@/lib/api/medical';
 import type { FieldPromptConfig, MatchFilters } from '@/lib/api/medical';
-import { extractErrorMessage, extractTraceId } from '@/lib/utils';
+import { extractErrorMessage } from '@/lib/utils';
+import { logClientError } from '@/lib/logging';
 import { TrialCard } from '@/components/medical/TrialCard';
 import { MissingConfirmBanner } from '@/components/medical/MissingConfirmBanner';
 import { MatchDeltaBanner, type MatchDelta } from '@/components/medical/MatchDeltaBanner';
@@ -651,8 +652,7 @@ export default function ResultsStep({ params }: ResultsStepProps) {
         setMatchResults(status.matches);
       }
     } catch (error: unknown) {
-      const traceId = extractTraceId(error);
-      console.error('Failed to load match status', { error, traceId });
+      logClientError('results.loadMatchStatus', error, { recordId });
     }
   }, [deriveBatchDetails, setMatchProvider, setMatchResults, updateProgressFromMetadata]);
 
@@ -705,8 +705,7 @@ export default function ResultsStep({ params }: ResultsStepProps) {
       const patient = await patientsApi.getPatient(patientRouteId);
       setCurrentPatient(patient);
     } catch (error: unknown) {
-      const traceId = extractTraceId(error);
-      console.error('Error loading patient', { error, traceId });
+      const traceId = logClientError('results.loadPatient', error, { patientRouteId });
       const message = extractErrorMessage(error, '患者信息加载失败');
       setPatientLoadError(message);
       setPatientLoadTraceId(traceId);
@@ -911,8 +910,7 @@ export default function ResultsStep({ params }: ResultsStepProps) {
         stopThinking();
       }
     } catch (error: unknown) {
-      const traceId = extractTraceId(error);
-      console.error('Trial batch matching error', { error, traceId });
+      logClientError('results.performTrialMatching', error, { currentRecordId });
       const message = extractErrorMessage(error, '批次匹配失败');
       setError(message);
       showToast.error(message);
@@ -974,8 +972,7 @@ export default function ResultsStep({ params }: ResultsStepProps) {
         loadMatchHistory(currentRecordId, { reset: true });
       }
     } catch (error: unknown) {
-      const traceId = extractTraceId(error);
-      console.error('Structured data matching error', { error, traceId });
+      logClientError('results.performStructuredDataMatching', error, { currentRecordId });
       const message = extractErrorMessage(error, '结构化数据匹配失败');
       setError(message);
       showToast.error(message);
@@ -1129,8 +1126,7 @@ export default function ResultsStep({ params }: ResultsStepProps) {
         setHistoryDiff({ added: [], removed: [] });
         setCurrentRecordId(null);
       } catch (error: unknown) {
-        const traceId = extractTraceId(error);
-        console.error('Error loading match results', { error, traceId });
+        logClientError('results.loadMatchResults', error, { patientRouteId, currentRecordId });
         const message = extractErrorMessage(error, '匹配结果加载失败');
         showToast.error(message);
         if (isMounted) {
@@ -1209,8 +1205,7 @@ export default function ResultsStep({ params }: ResultsStepProps) {
       }
       showToast.success('匹配结果已刷新');
     } catch (error: unknown) {
-      const traceId = extractTraceId(error);
-      console.error('Refresh error', { error, traceId });
+      logClientError('results.handleRefreshResults', error, { currentRecordId });
       showToast.error('刷新失败，请稍后重试');
     } finally {
       setIsLoading(false);

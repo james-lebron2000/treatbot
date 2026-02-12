@@ -21,7 +21,8 @@ import { useUploadProgressStore, generateUploadId, type UploadTask } from '@/lib
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { medicalApi } from '@/lib/api/medical';
 import { uploadProgressApi } from '@/lib/api/uploadProgress';
-import { cn, extractErrorMessage, extractTraceId } from '@/lib/utils';
+import { cn, extractErrorMessage } from '@/lib/utils';
+import { logClientError, logClientWarn } from '@/lib/logging';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { UploadProgress } from '@/components/ui/UploadProgress';
@@ -195,8 +196,7 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
       const patient = await patientsApi.getPatient(patientRouteId);
       setCurrentPatient(patient);
     } catch (error: unknown) {
-      const traceId = extractTraceId(error);
-      console.error('Error loading patient', { error, traceId });
+      const traceId = logClientError('upload.loadPatient', error, { patientRouteId });
       const message = extractErrorMessage(error, '患者信息加载失败');
       setPatientLoadError(message);
       setPatientLoadTraceId(traceId);
@@ -221,8 +221,7 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
       const records = await patientsApi.getPatientRecords(patientRouteId);
       setRecentRecords(records.slice(0, 5));
     } catch (error: unknown) {
-      const traceId = extractTraceId(error);
-      console.warn('Failed to load patient records for upload overview', { error, traceId });
+      logClientWarn('upload.refreshPatientRecords', error, { patientRouteId });
     } finally {
       setIsLoadingRecords(false);
     }
@@ -382,8 +381,10 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
 
       showToast.success(`文件 "${file.name}" 处理完成`);
     } catch (error: unknown) {
-      const traceId = extractTraceId(error);
-      console.error('OCR processing failed', { error, traceId });
+      logClientError('upload.processOCRResult', error, {
+        fileName: file.name,
+        uploadId
+      });
       const errorMessage = extractErrorMessage(error, '文字识别失败');
 
       failUpload(errorMessage);
@@ -438,8 +439,10 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
       await processOCRResult(file, uploadId);
 
     } catch (error: unknown) {
-      const traceId = extractTraceId(error);
-      console.error('File upload failed', { error, traceId });
+      logClientError('upload.processFileUpload', error, {
+        fileName: file.name,
+        uploadId
+      });
       const errorMessage = extractErrorMessage(error, '文件上传失败');
 
       failUpload(errorMessage);
@@ -466,7 +469,7 @@ export default function UploadStep({ params }: { params?: Promise<{ id?: string 
   }, [refreshPatientRecords]);
 
   const handleUploadError = useCallback((error: string) => {
-    console.error('Upload error', { error });
+    logClientError('upload.handleUploadError', error);
 
     setCurrentUploadId(null);
     setIsProcessing(false);

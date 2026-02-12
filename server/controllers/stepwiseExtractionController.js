@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const { MedicalRecord } = require('../models');
+const { MedicalRecord, Patient } = require('../models');
 const logger = require('../utils/logger');
 const { HttpError, BadRequestError, NotFoundError } = require('../utils/httpError');
 const { defaultContainer } = require('../services/ServiceContainer');
@@ -33,9 +33,27 @@ async function startStepwiseExtraction(req, res, next) {
 
     linkedRecordId = medicalRecord._id.toString();
     seedArchive = medicalRecord.clinicalArchive || null;
+
+    if (patientId && medicalRecord.patientId && String(medicalRecord.patientId) !== String(patientId)) {
+      throw new BadRequestError('patientId 与 recordId 不匹配');
+    }
+
     if (!resolvedPatientId && medicalRecord.patientId) {
       resolvedPatientId = medicalRecord.patientId.toString();
     }
+  }
+
+  if (resolvedPatientId) {
+    if (!mongoose.isValidObjectId(resolvedPatientId)) {
+      throw new BadRequestError('无效的患者 ID');
+    }
+
+    const patient = await Patient.findOne({ _id: resolvedPatientId, userId: req.user.userId }).select('_id');
+    if (!patient) {
+      throw new NotFoundError('未找到对应的患者');
+    }
+
+    resolvedPatientId = patient._id.toString();
   }
 
   logger.info({
