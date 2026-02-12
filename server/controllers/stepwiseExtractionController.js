@@ -57,6 +57,7 @@ async function startStepwiseExtraction(req, res, next) {
   }
 
   logger.info({
+    traceId: req.id,
     userId: req.user.userId,
     patientId: resolvedPatientId,
     recordId: linkedRecordId,
@@ -76,7 +77,7 @@ async function startStepwiseExtraction(req, res, next) {
       message: '分步提取任务已启动'
     });
   } catch (error) {
-    logger.error({ err: error, userId: req.user.userId }, '启动分步提取失败');
+    logger.error({ err: error, traceId: req.id, userId: req.user.userId }, '启动分步提取失败');
     return next(new HttpError(500, '启动分步提取失败', error.message));
   }
 }
@@ -106,7 +107,7 @@ async function getExtractionStatus(req, res) {
     if (error instanceof HttpError) {
       throw error;
     }
-    logger.error({ err: error, jobId, userId: req.user.userId }, '获取提取状态失败');
+    logger.error({ err: error, traceId: req.id, jobId, userId: req.user.userId }, '获取提取状态失败');
     throw new HttpError(500, '获取提取状态失败', error.message);
   }
 }
@@ -136,6 +137,7 @@ async function getExtractionResult(req, res) {
     }
 
     logger.info({
+      traceId: req.id,
       jobId,
       userId: req.user.userId,
       confidence: result.extractionMetadata.confidence,
@@ -151,7 +153,7 @@ async function getExtractionResult(req, res) {
     if (error instanceof HttpError) {
       throw error;
     }
-    logger.error({ err: error, jobId, userId: req.user.userId }, '获取提取结果失败');
+    logger.error({ err: error, traceId: req.id, jobId, userId: req.user.userId }, '获取提取结果失败');
     throw new HttpError(500, '获取提取结果失败', error.message);
   }
 }

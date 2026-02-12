@@ -16,7 +16,16 @@ module.exports = function errorHandler(err, req, res, next) {
   const message = isServerError ? 'Internal server error' : err.message || 'Request failed';
   const code = err.code || (isServerError ? 'internal_error' : undefined);
 
-  logger.error({ err, statusCode, reqId: req.id }, message);
+  logger.error(
+    {
+      err,
+      statusCode,
+      traceId: req.id,
+      method: req.method,
+      path: req.originalUrl || req.url
+    },
+    message
+  );
 
   return res.status(statusCode).json({
     success: false,

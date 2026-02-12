@@ -8,10 +8,12 @@ A Next.js + Node.js + MongoDB-based clinical trial matching platform demo that h
 
 ## 🎉 Latest Updates
 
-### vNext (2026-02-10) - Security, Testing, Tracing ✅
+### vNext (2026-02-12) - Security, Testing, Tracing ✅
 - Enforced **record ownership** checks on critical medical record flows (prevents cross-user access)
 - Added end-to-end **request tracing**: `X-Request-Id` header + response `traceId`
 - Added Jest + Supertest integration tests (including ownership regression tests)
+- Added failure-chain trace regression test: ensures `X-Request-Id` is consistent across error response and backend critical error logs
+- Added release quality gate command: `npm run qa:gate`
 - Frontend lint is clean (`npm -C client run lint`)
 
 ### v2.2 (2025-10-03) - Code Quality & Cleanup ✅
@@ -242,9 +244,15 @@ cp ./deploy/autossh.docker-compose.env.example ./deploy/autossh.env
 # backend/unit+integration tests (Jest)
 npm test
 
+# targeted trace correlation regression (failure path)
+npm run test:e2e:trace
+
 # frontend lint/build
 npm -C client run lint
 npm -C client run build
+
+# release quality gate (lint + build + backend tests)
+npm run qa:gate
 ```
 
 ## Project Structure
