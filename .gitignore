@@ -13,6 +13,8 @@ server/build/
 dist/
 .cache/
 coverage/
+playwright-report/
+test-results/
 
 # Client-specific ignores
 client/node_modules/

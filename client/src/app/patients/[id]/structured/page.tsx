@@ -76,7 +76,7 @@ export default function PatientStructuredPage({ params }: PatientStructuredPageP
   const [patientLoadError, setPatientLoadError] = useState<string | null>(null);
   const [patientLoadTraceId, setPatientLoadTraceId] = useState<string | null>(null);
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, hasHydrated } = useAuthStore();
   const { currentPatient, setCurrentPatient } = usePatientStore();
   const { extractedText, structuredRecord: workflowStructuredRecord, setCurrentStep } = useWorkflowStore();
 
@@ -130,11 +130,11 @@ export default function PatientStructuredPage({ params }: PatientStructuredPageP
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (hasHydrated && !isAuthenticated) {
       router.push('/auth/login');
       return;
     }
-  }, [isAuthenticated, router]);
+  }, [hasHydrated, isAuthenticated, router]);
 
   // Load patient data and records
   useEffect(() => {
@@ -280,6 +280,10 @@ export default function PatientStructuredPage({ params }: PatientStructuredPageP
     // OCR page may be removed in the new workflow; go back to upload step.
     router.push(`/patients/${patientRouteId}/upload`);
   };
+
+  if (!hasHydrated) {
+    return <WorkflowLoadingState title="正在加载用户状态" message="请稍候..." />;
+  }
 
   if (!isAuthenticated) {
     return <WorkflowLoadingState title="正在跳转登录" message="需要登录后才能继续" />;

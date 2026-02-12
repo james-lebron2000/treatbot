@@ -14,6 +14,8 @@
     "test": "jest",
     "test:e2e:trace": "jest server/test/request-id.test.js --runInBand",
     "qa:gate": "npm -C client run lint && npm -C client run build && npm test",
+    "e2e:serve": "concurrently -k -s first \"cd server && npm start\" \"cd client && NEXT_PUBLIC_API_BASE_URL=/api npm run dev -- -p 3000\"",
+    "test:e2e": "start-server-and-test \"npm run e2e:serve\" http://localhost:3000 \"playwright test\"",
     "start:prod": "npm run build && concurrently \"cd server && npm start\" \"cd client && npm start\"",
     "setup:python": "./scripts/setup_python_venv.sh",
     "db:seed": "cd server && npm run setup",
@@ -27,6 +29,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/node": "^24.7.2",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
@@ -34,6 +37,7 @@
     "jest": "^30.2.0",
     "jest-junit": "^16.0.0",
     "mongodb-memory-server": "^11.0.1",
+    "start-server-and-test": "^2.1.3",
     "supertest": "^7.2.2"
   },
   "dependencies": {

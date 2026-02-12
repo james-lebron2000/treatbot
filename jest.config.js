@@ -51,7 +51,10 @@ module.exports = {
   testPathIgnorePatterns: [
     '/node_modules/',
     '/coverage/',
-    '/dist/'
+    '/dist/',
+    '/e2e/',
+    '/playwright-report/',
+    '/test-results/'
   ],
 
   // Module paths

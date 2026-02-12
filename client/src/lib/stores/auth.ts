@@ -7,9 +7,11 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  hasHydrated: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
   setLoading: (loading: boolean) => void;
+  setHasHydrated: (hydrated: boolean) => void;
   updateUser: (user: Partial<User>) => void;
 }
 
@@ -20,6 +22,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       isLoading: false,
+      hasHydrated: false,
 
       login: (token: string, user: User) => {
         set({
@@ -43,6 +46,10 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: loading });
       },
 
+      setHasHydrated: (hydrated: boolean) => {
+        set({ hasHydrated: hydrated });
+      },
+
       updateUser: (userData: Partial<User>) => {
         const currentUser = get().user;
         if (currentUser) {
@@ -59,6 +66,10 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Prevent redirect flicker: only decide auth redirects after hydration.
+        state?.setHasHydrated(true);
+      },
     }
   )
 );

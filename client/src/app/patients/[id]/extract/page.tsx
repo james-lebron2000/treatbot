@@ -124,7 +124,7 @@ export default function ExtractStep({ params }: ExtractStepProps) {
   const [patientLoadError, setPatientLoadError] = useState<string | null>(null);
   const [patientLoadTraceId, setPatientLoadTraceId] = useState<string | null>(null);
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, hasHydrated } = useAuthStore();
   const { currentPatient, setCurrentPatient } = usePatientStore();
   const {
     extractedText,
@@ -233,11 +233,11 @@ export default function ExtractStep({ params }: ExtractStepProps) {
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (hasHydrated && !isAuthenticated) {
       router.push('/auth/login');
       return;
     }
-  }, [isAuthenticated, router]);
+  }, [hasHydrated, isAuthenticated, router]);
 
   const loadPatient = async () => {
     if (!paramsResolved || !patientRouteId) return;
@@ -593,6 +593,10 @@ export default function ExtractStep({ params }: ExtractStepProps) {
     if (step === 3) return step2Completed;
     return false;
   };
+
+  if (!hasHydrated) {
+    return <WorkflowLoadingState title="正在加载用户状态" message="请稍候..." />;
+  }
 
   if (!isAuthenticated) {
     return <WorkflowLoadingState title="正在跳转登录" message="需要登录后才能继续" />;

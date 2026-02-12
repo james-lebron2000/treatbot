@@ -142,7 +142,7 @@ export default function ResultsStep({ params }: ResultsStepProps) {
   const [patientLoadError, setPatientLoadError] = useState<string | null>(null);
   const [patientLoadTraceId, setPatientLoadTraceId] = useState<string | null>(null);
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, hasHydrated } = useAuthStore();
   const { currentPatient, setCurrentPatient } = usePatientStore();
   const {
     matchResults: workflowMatchResults,
@@ -690,11 +690,11 @@ export default function ResultsStep({ params }: ResultsStepProps) {
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (hasHydrated && !isAuthenticated) {
       router.push('/auth/login');
       return;
     }
-  }, [isAuthenticated, router]);
+  }, [hasHydrated, isAuthenticated, router]);
 
   const loadPatient = useCallback(async () => {
     if (!paramsResolved || !patientRouteId) return;
@@ -1346,6 +1346,10 @@ export default function ResultsStep({ params }: ResultsStepProps) {
     ? `批次 ${matchProvider.lastBatchNumber ?? matchProvider.completedBatches ?? latestBatch?.number ?? 0} / ${matchProvider.totalBatches}`
     : null;
   const isStreaming = Boolean(activeJobId);
+
+  if (!hasHydrated) {
+    return <WorkflowLoadingState title="正在加载用户状态" message="请稍候..." />;
+  }
 
   if (!isAuthenticated) {
     return <WorkflowLoadingState title="正在跳转登录" message="需要登录后才能继续" />;
