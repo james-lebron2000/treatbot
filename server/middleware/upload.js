@@ -20,11 +20,13 @@ const fileFilter = (_req, file, cb) => {
 };
 
 const maxFileSize = Number(process.env.UPLOAD_MAX_BYTES || 50 * 1024 * 1024);
+const maxFiles = Number(process.env.UPLOAD_MAX_FILES || 10);
 
 module.exports = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: maxFileSize
+    fileSize: maxFileSize,
+    files: maxFiles
   }
 });
