@@ -16,6 +16,13 @@ const cacheResponse = require('../middleware/cacheResponse');
 
 const router = express.Router();
 
+function requireAdmin(req, res, next) {
+  if (req.userRole !== 'admin') {
+    return res.fail('Admin access required', { status: 403, code: 'admin_required' });
+  }
+  return next();
+}
+
 router.post('/upload', authenticateToken, upload.any(), asyncHandler(ocrController.uploadMedicalFiles));
 router.post('/records/from-ocr', authenticateToken, asyncHandler(ocrController.createRecordFromOCR));
 router.post('/parse', authenticateToken, asyncHandler(parsingController.parseMedicalText));
@@ -42,7 +49,7 @@ router.get('/records/:id/report.pdf', authenticateToken, asyncHandler(reportPdfC
 router.get('/records/:id/report.html', authenticateToken, asyncHandler(reportHtmlController.getMatchReportHtml));
 router.put('/records/:id', authenticateToken, asyncHandler(recordCRUDController.updateMedicalRecord));
 router.delete('/records/:id', authenticateToken, asyncHandler(recordCRUDController.deleteMedicalRecord));
-router.get('/ocr/health', asyncHandler(ocrController.ocrHealthCheck));
+router.get('/ocr/health', authenticateToken, requireAdmin, asyncHandler(ocrController.ocrHealthCheck));
 router.post('/integrate', authenticateToken, asyncHandler(parsingController.integrateMedicalRecord));
 router.post('/extract/fields', authenticateToken, asyncHandler(parsingController.extractFieldsWithLLM));
 
