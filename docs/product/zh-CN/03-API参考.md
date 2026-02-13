@@ -93,7 +93,7 @@
 
 ## 6. 健康与监控
 
-- GET `/api/health`：服务健康（Mongo/Redis 状态）
-- GET `/api/metrics`：Prometheus metrics
-- GET `/api/medical/ocr/health`：OCR 服务健康
-
+- GET `/api/health`：服务健康（生产环境默认返回最小信息，不暴露内部依赖/配置）
+  - 详细健康（依赖与配置）需要设置 `HEALTH_TOKEN` 并携带请求头：`Authorization: Bearer <HEALTH_TOKEN>`
+- GET `/api/metrics`：Prometheus metrics（生产环境需设置 `METRICS_TOKEN` 并携带请求头：`Authorization: Bearer <METRICS_TOKEN>`）
+- GET `/api/medical/ocr/health`：OCR 服务健康（需登录且为管理员角色）

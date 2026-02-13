@@ -36,6 +36,20 @@ function isLoopbackIp(ip) {
   return false;
 }
 
+function isProductionRuntime() {
+  const nodeEnv = String(process.env.NODE_ENV || '').toLowerCase();
+  const appMode = String(process.env.APP_MODE || '').toLowerCase();
+  return nodeEnv === 'production' || appMode === 'production';
+}
+
+function hasValidBearer(req, expectedToken) {
+  const token = String(expectedToken || '').trim();
+  if (!token) return false;
+  const authHeader = req.get('authorization') || '';
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
+  return Boolean(bearer && bearer === token);
+}
+
 function resolveRequestId(req) {
   const header = req.get('x-request-id');
   if (typeof header === 'string') {
@@ -142,21 +156,39 @@ app.use('/api/enhanced-upload', enhancedUploadRoutes);
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
+  const timestamp = new Date().toISOString();
   const mongoReadyState = mongoose.connection.readyState;
-  const mongoStatus = mongoReadyState === 1 ? 'connected' : 'disconnected';
+  const mongoOk = mongoReadyState === 1;
+
   const redisEnabled = isRedisEnabled();
   const redisHealth = await pingRedis();
-  const redisStatus = redisEnabled
-    ? (redisHealth.ok ? 'connected' : `error: ${redisHealth.message}`)
-    : 'disabled';
+  const redisOk = !redisEnabled || redisHealth.ok;
+
+  const degraded = !mongoOk || !redisOk;
+  const httpStatus = degraded ? 503 : 200;
+  const status = degraded ? 'DEGRADED' : 'OK';
+
+  // Default: minimal payload suitable for public health checks (avoid exposing internal config).
+  // If HEALTH_TOKEN is configured, a valid Authorization Bearer token can request details.
+  const healthToken = String(process.env.HEALTH_TOKEN || '').trim();
+  const allowDetails = Boolean(
+    (healthToken && hasValidBearer(req, healthToken))
+      || (!isProductionRuntime() && !healthToken && isLoopbackIp(req.ip))
+  );
+
+  if (!allowDetails) {
+    return res.success({ status, timestamp }, { status: httpStatus, message: 'Server health' });
+  }
 
   const payload = {
-    status: 'OK',
-    timestamp: new Date().toISOString(),
+    status,
+    timestamp,
     mode: process.env.APP_MODE || process.env.NODE_ENV || 'mock',
     services: {
-      mongodb: mongoStatus,
-      redis: redisStatus,
+      mongodb: mongoOk ? 'connected' : 'disconnected',
+      redis: redisEnabled
+        ? (redisOk ? 'connected' : `error: ${redisHealth.message}`)
+        : 'disabled',
       llm: {
         required: String(process.env.REQUIRE_LLM || '').toLowerCase() === 'true'
           || String(process.env.STRICT_MODE || '').toLowerCase() === 'true'
@@ -170,7 +202,7 @@ app.get('/api/health', async (req, res) => {
     }
   };
 
-  res.success(payload, { message: 'Server is running' });
+  return res.success(payload, { status: httpStatus, message: 'Server health (detailed)' });
 });
 
 app.get('/api/metrics', async (req, res, next) => {
