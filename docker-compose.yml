@@ -5,7 +5,7 @@ services:
     container_name: clinicalmatch-mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     environment:
       MONGO_INITDB_DATABASE: clinicalmatch
     volumes:
@@ -56,7 +56,7 @@ services:
       - NODE_ENV=production
       - PORT=5001
       - MONGODB_URI=mongodb://mongodb:27017/clinicalmatch
-      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-this}
+      - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=7d
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - baseURL=${baseURL:-https://api.moonshot.cn/v1}
@@ -71,6 +71,9 @@ services:
       - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://frontend:3000
       - CORS_ALLOW_CREDENTIALS=true
       - APP_MODE=production
+      # Protect Prometheus metrics endpoint (/api/metrics) in production.
+      # Set this and scrape with: Authorization: Bearer $METRICS_TOKEN
+      - METRICS_TOKEN=${METRICS_TOKEN}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - ALIBABA_ACCESS_KEY_ID=${ALIBABA_ACCESS_KEY_ID}
@@ -124,7 +127,7 @@ services:
     container_name: clinicalmatch-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:

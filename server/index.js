@@ -16,7 +16,25 @@ const requestContext = require('./utils/requestContext');
 
 const app = express();
 app.disable('x-powered-by');
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+// Stored uploads (PHI) live at repo root /app/uploads (docker volume), not under /server.
+const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+
+function resolveTrustProxySetting() {
+  if (process.env.TRUST_PROXY === undefined) return null;
+  const raw = String(process.env.TRUST_PROXY).trim().toLowerCase();
+  if (raw === 'true') return 1;
+  if (raw === 'false' || raw === '0' || raw === '') return 0;
+  const asNumber = Number(raw);
+  if (Number.isFinite(asNumber)) return asNumber;
+  return 1;
+}
+
+function isLoopbackIp(ip) {
+  if (!ip || typeof ip !== 'string') return false;
+  if (ip === '127.0.0.1' || ip === '::1') return true;
+  if (ip.startsWith('::ffff:127.')) return true;
+  return false;
+}
 
 function resolveRequestId(req) {
   const header = req.get('x-request-id');
@@ -46,6 +64,12 @@ const corsOptions = {
 };
 
 // Middleware
+const trustProxy = resolveTrustProxySetting();
+if (trustProxy !== null) {
+  // Ensure req.ip is correct behind a reverse proxy, which impacts rate limiting and audit logs.
+  app.set('trust proxy', trustProxy);
+}
+
 app.use((req, res, next) => {
   req.id = resolveRequestId(req);
   res.setHeader('X-Request-Id', req.id);
@@ -57,7 +81,11 @@ app.use(cors(corsOptions));
 app.use(expressWinston.logger({
   winstonInstance: logger,
   meta: true,
-  msg: '{{req.method}} {{req.url}} {{res.statusCode}} {{res.responseTime}}ms',
+  // Use req.path to avoid logging sensitive query params (e.g. SSE auth token).
+  msg: '{{req.method}} {{req.path}} {{res.statusCode}} {{res.responseTime}}ms',
+  // Avoid leaking tokens (query or headers) into structured logs.
+  requestWhitelist: ['method', 'httpVersion', 'path', 'headers'],
+  headerBlacklist: ['authorization', 'cookie'],
   ignoreRoute: (req) => req.path.startsWith('/api/health')
 }));
 app.use(express.json());
@@ -72,7 +100,8 @@ app.use((err, req, res, next) => {
   return next(err);
 });
 
-app.use('/uploads', express.static(UPLOADS_DIR));
+// Do NOT serve uploads publicly. These may contain PHI. If you need to download files,
+// add a dedicated authenticated route that validates ownership before streaming bytes.
 
 // Import routes
 function tryLoadRoute(relativePath) {
@@ -146,6 +175,23 @@ app.get('/api/health', async (req, res) => {
 
 app.get('/api/metrics', async (req, res, next) => {
   try {
+    const token = String(process.env.METRICS_TOKEN || '').trim();
+    // Safety default: metrics are disabled in production unless explicitly protected.
+    if (!token) {
+      if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
+        return res.fail('Not found', { status: 404, code: 'not_found' });
+      }
+      if (!isLoopbackIp(req.ip)) {
+        return res.fail('Forbidden', { status: 403, code: 'metrics_forbidden' });
+      }
+    } else {
+      const authHeader = req.get('authorization') || '';
+      const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
+      if (!bearer || bearer !== token) {
+        return res.fail('Forbidden', { status: 403, code: 'metrics_forbidden' });
+      }
+    }
+
     await metricsHandler(req, res);
   } catch (err) {
     next(err);
@@ -173,7 +219,9 @@ app.use((req, res, next) => {
 });
 
 app.use(expressWinston.errorLogger({
-  winstonInstance: logger
+  winstonInstance: logger,
+  requestWhitelist: ['method', 'httpVersion', 'path', 'headers'],
+  headerBlacklist: ['authorization', 'cookie']
 }));
 app.use(errorHandler);
 

@@ -337,7 +337,25 @@ export function connectSSE(
   uploadId: string,
   callbacks: SSEProgressCallback = {}
 ): EventSource {
-  const eventSource = new EventSource(`/api/upload-progress/${uploadId}/stream`);
+  const getStoredAuthToken = (): string | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem('auth-storage');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const token = parsed?.state?.token;
+      return typeof token === 'string' ? token : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const token = getStoredAuthToken();
+  const url = new URL(`/api/upload-progress/${uploadId}/stream`, window.location.origin);
+  if (token) {
+    url.searchParams.set('token', token);
+  }
+  const eventSource = new EventSource(url.toString());
 
   eventSource.onopen = () => {
     console.log(`SSE connection opened for upload ${uploadId}`);

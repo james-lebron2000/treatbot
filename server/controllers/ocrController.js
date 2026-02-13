@@ -436,7 +436,8 @@ async function createRecordFromOCR(req, res, next) {
 
 async function ocrHealthCheck(_req, res, next) {
   try {
-    const uploadsDir = path.join(__dirname, '../uploads');
+    // Store uploads under repo root (shared docker volume: /app/uploads), not /server/uploads.
+    const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
     const hasCredentials = Boolean(process.env.ALIBABA_ACCESS_KEY_ID && process.env.ALIBABA_ACCESS_KEY_SECRET && process.env.ALIBABA_ACCESS_KEY_ID !== 'your_access_key_id');
 
     const healthCheck = {

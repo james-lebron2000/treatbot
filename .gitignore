@@ -109,3 +109,8 @@ python_ocr_service/.env
 client/.env*
 deploy/.env*
 deploy/autossh*.env
+
+# Allow checked-in environment templates (non-secret)
+!.env.example
+!.env.docker
+!**/*.env.example

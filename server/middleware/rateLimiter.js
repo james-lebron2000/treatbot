@@ -1,5 +1,6 @@
-const { RateLimiterMemory } = require('rate-limiter-flexible');
+const { RateLimiterMemory, RateLimiterRedis } = require('rate-limiter-flexible');
 const logger = require('../utils/logger');
+const { getRedisClient, isRedisEnabled } = require('../config/redis');
 
 const defaultOptions = {
   points: Number(process.env.RATE_LIMIT_POINTS) || 120,
@@ -11,12 +12,25 @@ const limiterCache = new Map();
 
 function getLimiter(namespace, options) {
   if (!limiterCache.has(namespace)) {
-    const limiter = new RateLimiterMemory({
-      keyPrefix: namespace,
-      points: options.points,
-      duration: options.duration,
-      blockDuration: options.blockDuration
-    });
+    let limiter;
+    if (isRedisEnabled()) {
+      limiter = new RateLimiterRedis({
+        storeClient: getRedisClient(),
+        keyPrefix: namespace,
+        points: options.points,
+        duration: options.duration,
+        blockDuration: options.blockDuration
+      });
+      logger.info({ namespace }, 'Rate limiter initialised (redis)');
+    } else {
+      limiter = new RateLimiterMemory({
+        keyPrefix: namespace,
+        points: options.points,
+        duration: options.duration,
+        blockDuration: options.blockDuration
+      });
+      logger.info({ namespace }, 'Rate limiter initialised (memory)');
+    }
     limiterCache.set(namespace, limiter);
   }
   return limiterCache.get(namespace);

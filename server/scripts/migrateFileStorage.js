@@ -17,7 +17,8 @@ const User = require('../models/User');
 
 class FileStorageMigration {
   constructor() {
-    this.uploadsDir = path.join(__dirname, '../uploads');
+    // Store uploads under repo root (shared docker volume: /app/uploads), not /server/uploads.
+    this.uploadsDir = path.join(__dirname, '..', '..', 'uploads');
     this.batchSize = 100;
     this.migrationStats = {
       totalFiles: 0,

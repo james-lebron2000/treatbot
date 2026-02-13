@@ -238,6 +238,26 @@ cp ./deploy/autossh.docker-compose.env.example ./deploy/autossh.env
 - Backend echoes it back as response header `X-Request-Id` and embeds the same value in the JSON envelope `traceId`.
 - Frontend API client auto-injects `X-Request-Id` for axios requests.
 
+### Security Notes (Production Readiness)
+- Uploads are **not** served as a public static directory. Treat the `uploads/` volume as PHI storage.
+- SSE endpoints currently use EventSource (which cannot send `Authorization` headers) and may pass JWT via a `token` query param. Server access logs are configured to avoid logging query strings; however, **reverse proxies must also avoid logging sensitive query params**.
+- `/api/metrics` (Prometheus) is **disabled in production** unless you set `METRICS_TOKEN`.
+
+### Reverse Proxy / Rate Limiting (trust proxy)
+If deploying behind Nginx/Cloudflare/any L7 proxy, set:
+```bash
+TRUST_PROXY=1
+```
+This ensures `req.ip` is correct for rate limiting and audit logs.
+
+### Prometheus Metrics
+- Development: `/api/metrics` is allowed only from loopback (`127.0.0.1` / `::1`) when `METRICS_TOKEN` is not set.
+- Production: `/api/metrics` returns 404 unless `METRICS_TOKEN` is set.
+- When `METRICS_TOKEN` is set, scrape with header:
+```bash
+Authorization: Bearer <METRICS_TOKEN>
+```
+
 ## Testing
 
 ```bash

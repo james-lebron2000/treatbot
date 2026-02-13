@@ -178,6 +178,12 @@ const medicalRecordSchema = new mongoose.Schema({
   }
 });
 
+// Query hot paths:
+// - list records for a user sorted by uploadDate
+// - fetch latest record for a user+patient sorted by uploadDate
+medicalRecordSchema.index({ userId: 1, uploadDate: -1 });
+medicalRecordSchema.index({ userId: 1, patientId: 1, uploadDate: -1 });
+
 const clinicalTrialSchema = new mongoose.Schema({
   trialId: {
     type: String,

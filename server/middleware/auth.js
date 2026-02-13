@@ -2,11 +2,26 @@ const jwt = require('jsonwebtoken');
 const config = require('../config');
 const requestContext = require('../utils/requestContext');
 
+function allowQueryToken(req) {
+  if (!req) return false;
+  if (req.method !== 'GET') return false;
+
+  // EventSource requests include this Accept by default.
+  const accept = typeof req.headers?.accept === 'string' ? req.headers.accept : '';
+  if (accept.includes('text/event-stream')) return true;
+
+  // Backstop: only allow on explicit stream endpoints.
+  const path = typeof req.path === 'string' ? req.path : '';
+  if (path === '/stream' || path.endsWith('/stream') || path.includes('/stream/')) return true;
+
+  return false;
+}
+
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   const headerToken = authHeader && authHeader.split(' ')[1];
   const queryToken = typeof req.query?.token === 'string' ? req.query.token : null;
-  const token = headerToken || queryToken;
+  const token = headerToken || (allowQueryToken(req) ? queryToken : null);
 
   if (!token) {
     if (typeof res.fail === 'function') {

@@ -434,7 +434,6 @@ router.get('/:uploadId/stream', requireAuth, validateUploadId, validateUploadOwn
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
       'X-Accel-Buffering': 'no'
     });
 
